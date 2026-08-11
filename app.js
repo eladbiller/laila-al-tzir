@@ -164,7 +164,13 @@ function setBoardActions() {
   const area = $('#board-actions'); area.replaceChildren(); const message = document.createElement('p'); const team = activeTeam();
   const addButton = (label, action, cls = 'secondary-button') => { const button = document.createElement('button'); button.type = 'button'; button.className = cls; button.textContent = label; button.onclick = action; controls.append(button); };
   const controls = document.createElement('div'); controls.className = 'context-actions';
-  if (game.phase === 'awaiting' || game.phase === 'final-awaiting') { message.textContent = team?.online ? 'הזוג הפעיל מתחיל את התור מהטלפון שלו.' : 'הזוג הפעיל מנותק — אפשר לדלג עליו.'; if (!team?.online) addButton('דלגו על הזוג המנותק', () => nextTurn(), 'danger-button'); }
+  const activeDisconnected = team && !team.online;
+  if (activeDisconnected && ['word','drawing'].includes(game.phase)) {
+    message.textContent = game.phase === 'drawing' ? 'הזוג המצייר נותק באמצע התור. אפשר להמתין שיתחבר מחדש, לסיים להכרעה, או לבטל את התור.' : 'הזוג הפעיל נותק לפני שהתחיל לצייר. אפשר להמתין שיתחבר מחדש או לבטל את התור.';
+    if (game.phase === 'drawing') addButton('סיימו להכרעה', endNormalDrawing, 'secondary-button');
+    addButton('בטלו את התור', cancelDisconnectedTurn, 'danger-button');
+  }
+  else if (game.phase === 'awaiting' || game.phase === 'final-awaiting') { message.textContent = team?.online ? 'הזוג הפעיל מתחיל את התור מהטלפון שלו.' : 'הזוג הפעיל מנותק — אפשר לדלג עליו.'; if (!team?.online) addButton('דלגו על הזוג המנותק', () => nextTurn(), 'danger-button'); }
   else if (game.phase === 'word') message.textContent = 'הכרטיס מופיע אצל הזוגות. הזוג הפעיל פותח את לוח הציור.';
   else if (game.phase === 'drawing') { message.textContent = 'הטיימר רץ. הפעולה הזאת מופיעה רק עד שהסבב מסתיים.'; addButton('סיימו תור', endNormalDrawing, 'danger-button'); }
   else if (game.phase === 'normal-resolve') { message.textContent = 'האם הניחוש הצליח?'; addButton('✓ הצליחו — גלגלו D6', () => resolveNormal(true), 'main-button'); addButton('✕ לא הצליחו', () => resolveNormal(false), 'danger-button'); }
@@ -243,6 +249,7 @@ function beginTurn(teamId) {
 function startHostCountdown() { clearInterval(game.timer); game.timer = setInterval(() => { game.seconds -= 1; broadcastState(); renderHost(); if (game.seconds <= 0) endNormalDrawing(); }, 1000); }
 function beginDrawing(teamId) { if (activeTeam()?.id !== teamId || game.phase !== 'word') return; game.phase = 'drawing'; game.seconds = 60; broadcastState(); renderHost(); startHostCountdown(); }
 function endNormalDrawing() { if (game.phase !== 'drawing') return; clearInterval(game.timer); game.timer = null; game.seconds = 0; game.phase = 'normal-resolve'; broadcastState(); renderHost(); }
+function cancelDisconnectedTurn() { if (activeTeam()?.online || !['word','drawing'].includes(game.phase)) return; clearInterval(game.timer); game.timer = null; nextTurn(); }
 function resolveNormal(success) { if (game.phase !== 'normal-resolve') return; if (!success) return nextTurn(); rollTeam(activeTeam()?.id, false); }
 function finishAllPlay() { if (game.phase !== 'allplay-word') return; game.phase = 'allplay-resolve'; broadcastState(); renderHost(); }
 function resolveAllPlay(winnerId) { if (game.phase !== 'allplay-resolve') return; if (!winnerId) return nextTurn(); if (game.finalAllPlay && winnerId === game.finalTeamId) return declareWinner(winnerId); rollTeam(winnerId, false); }
