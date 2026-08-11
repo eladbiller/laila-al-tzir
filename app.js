@@ -41,7 +41,7 @@ const game = {
   category: '', word: '', seconds: 60, timer: null, strokes: [], usedWords: new Set(), finalTeamId: '',
   finalAllPlay: false, allPlayReady: {}, lastRoll: null, winnerId: '', heartbeat: null
 };
-const client = { teamId: '', reconnectKey: '', pairName: '', connection: null, reconnectTimer: null, connectionTimer: null, peerTimer: null, reconnectAttempts: 0, attempt: 0, canvasOpen: false, canvasReady: false, localStrokes: [], lastWord: '', lastPhase: '', connected: false, note: '', ended: false };
+const client = { teamId: '', reconnectKey: '', pairName: '', connection: null, reconnectTimer: null, connectionTimer: null, peerTimer: null, reconnectAttempts: 0, attempt: 0, canvasOpen: false, canvasReady: false, localStrokes: [], lastWord: '', lastPhase: '', connected: false, note: '', ended: false, resuming: false };
 const hostNetwork = { reconnecting: false, lastError: '' };
 let toastTimer;
 let hostOpenTimer;
@@ -171,7 +171,7 @@ function setBoardActions() {
   else if (game.phase === 'allplay-word') { message.textContent = `All Play פעיל${game.finalAllPlay ? ' — זהו סבב הסיום!' : ''}. אין טיימר.`; addButton('סיימו All Play', finishAllPlay, 'main-button'); }
   else if (game.phase === 'allplay-resolve') {
     message.textContent = 'בחרו את הזוג שניחש ראשון ב־All Play.'; const select = document.createElement('select'); select.id = 'allplay-winner'; const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'בחרו זוג שהצליח'; placeholder.disabled = true; placeholder.selected = true; select.append(placeholder); game.teams.filter((item) => item.online).forEach((item) => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; select.append(option); }); controls.append(select); addButton('הכריעו וגלגלו D6', () => { if (!select.value) return toast('בחרו את הזוג שניחש ראשון.'); resolveAllPlay(select.value); }, 'main-button');
-  } else if (game.phase === 'rolling') { message.textContent = game.lastRoll ? 'הקובייה נקבעה.' : 'מגלגלים…'; if (game.lastRoll) { const die = document.createElement('span'); die.className = 'roll-die'; die.textContent = game.lastRoll; controls.append(die); } }
+  } else if (game.phase === 'rolling') message.textContent = game.lastRoll ? 'הקובייה נקבעה.' : 'מגלגלים…';
   else if (game.phase === 'gameover') { message.textContent = 'המשחק הסתיים.'; addButton('משחק חדש', resetGame, 'main-button'); }
   else message.textContent = 'הלוח מוכן.';
   area.append(message); if (controls.childElementCount) area.append(controls);
@@ -314,13 +314,14 @@ function endGame() {
 function hostReceive(connection, message) {
   if (!message?.type) return;
   if (message.type === 'join') {
-    const requestedName = cleanName(message.name, 'זוג'); let team = game.teams.find((item) => item.id === message.teamId && item.reconnectKey === message.reconnectKey);
+    const requestedName = cleanName(message.name, 'זוג'); let team = message.resume ? game.teams.find((item) => item.id === message.teamId && item.reconnectKey === message.reconnectKey) : null;
     if (!team && game.phase !== 'lobby') { send(connection, { type: 'rejected', message: 'המשחק כבר התחיל. בקשו מהמארח לפתוח משחק חדש.' }); return; }
     const duplicate = game.teams.find((item) => item.id !== team?.id && normalizedName(item.name) === normalizedName(requestedName));
     if (duplicate) { send(connection, { type: 'rejected', message: 'שם הזוג כבר בשימוש בחדר. בחרו שם אחר.' }); return; }
     if (!team) { if (game.teams.length >= 8) { send(connection, { type: 'rejected', message: 'החדר מלא.' }); return; } team = { id: message.teamId, reconnectKey: message.reconnectKey, name: requestedName, position: 0, online: true, color: teamColor(game.teams.length), lastSeen: Date.now() }; game.teams.push(team); toast(`${team.name} הצטרפו.`); }
     else {
       const previous = game.connections.get(team.id);
+      if (previous && previous !== connection && previous.open && team.online) { send(connection, { type: 'rejected', message: 'הזוג הזה כבר מחובר מטלפון אחר. חזרו אליו או הצטרפו כזוג חדש.' }); return; }
       if (previous && previous !== connection) { try { previous.close(); } catch {} }
       team.online = true; team.lastSeen = Date.now(); team.name = requestedName; toast(`${team.name} התחברו מחדש.`);
     }
@@ -353,7 +354,7 @@ function connectClient() {
     clearTimeout(client.connectionTimer); client.connection = null; try { connection.close(); } catch {} client.connected = false; if (client.ended) return; setJoinStatus(peerErrorMessage(error, timeout), true); $('#join-room').disabled = false; if ($('#pair-view').classList.contains('is-active')) renderPair(); scheduleReconnect();
   };
   client.connectionTimer = setTimeout(() => failed(null, true), CONNECTION_TIMEOUT);
-  connection.on('open', () => { if (attempt !== client.attempt || client.connection !== connection) return; clearTimeout(client.connectionTimer); client.connected = true; client.reconnectAttempts = 0; setJoinStatus('החיבור נפתח. מצטרפים לחדר…'); send(connection, { type: 'join', teamId: client.teamId, reconnectKey: client.reconnectKey, name: client.pairName }); renderPair(); });
+  connection.on('open', () => { if (attempt !== client.attempt || client.connection !== connection) return; clearTimeout(client.connectionTimer); client.connected = true; client.reconnectAttempts = 0; setJoinStatus('החיבור נפתח. מצטרפים לחדר…'); send(connection, { type: 'join', teamId: client.teamId, reconnectKey: client.reconnectKey, name: client.pairName, resume: client.resuming }); renderPair(); });
   connection.on('data', clientReceive); connection.on('close', () => failed({ type: 'socket-closed' })); connection.on('error', (error) => failed(error));
 }
 function scheduleReconnect() { clearTimeout(client.reconnectTimer); if (game.mode !== 'client' || client.ended) return; const delay = Math.min(8000, 1000 * (2 ** Math.min(client.reconnectAttempts, 3))); client.reconnectAttempts += 1; client.reconnectTimer = setTimeout(() => { if (game.peer?.open && !game.peer.destroyed) connectClient(); else startClientPeer(); }, delay); }
@@ -366,7 +367,7 @@ function startClientPeer() {
 }
 function clientReceive(message) {
   if (!message?.type) return;
-  if (message.type === 'accepted') { client.teamId = message.teamId; client.note = ''; $('#join-room').disabled = false; saveDevice(); return; }
+  if (message.type === 'accepted') { client.teamId = message.teamId; client.resuming = true; client.note = ''; $('#join-room').disabled = false; saveDevice(); return; }
   if (message.type === 'rejected') { client.ended = true; clearClientTimers(); setJoinStatus(message.message, true); game.peer?.destroy?.(); game.mode = null; client.connected = false; $('#join-room').disabled = false; show('join-setup-view'); return; }
   if (message.type === 'heartbeat') { send(client.connection, { type: 'heartbeat-ack', teamId: client.teamId }); return; }
   if (message.type === 'game-ended') { client.ended = true; clearClientTimers(); clearSavedDevice(); client.connected = false; game.phase = 'ended'; show('pair-view'); renderPair(); return; }
@@ -377,7 +378,7 @@ function clientReceive(message) {
 function joinRoom(resume = false) {
   if (!window.Peer) return toast('שירות החיבור לא נטען.'); const code = normalizeCode($('#room-code').value); const name = cleanName($('#pair-name').value); if (!code || !name) { if (!resume) toast('כתבו שם זוג וקוד חדר.'); return; }
   clearClientTimers(); client.attempt += 1; client.connected = false; client.ended = false; client.note = ''; $('#join-room').disabled = true;
-  game.mode = 'client'; game.roomCode = code; const saved = readSavedDevice(); if (resume && saved?.roomCode === code && saved.teamId && saved.reconnectKey) { client.teamId = saved.teamId; client.reconnectKey = saved.reconnectKey; client.pairName = saved.pairName || name; } else { client.teamId = `team-${randomId()}`; client.reconnectKey = randomId(); client.pairName = name; }
+  game.mode = 'client'; game.roomCode = code; const saved = readSavedDevice(); client.resuming = Boolean(resume && saved?.roomCode === code && saved.teamId && saved.reconnectKey); if (client.resuming) { client.teamId = saved.teamId; client.reconnectKey = saved.reconnectKey; client.pairName = saved.pairName || name; } else { client.teamId = `team-${randomId()}`; client.reconnectKey = randomId(); client.pairName = name; }
   $('#join-status').textContent = resume ? 'מחזירים אתכם למשחק הקודם…' : 'מתחברים לחדר…'; startClientPeer();
 }
 function resumePairGame() {

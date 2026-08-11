@@ -160,7 +160,6 @@ button { -webkit-tap-highlight-color: transparent; }
 .context-sheet p { margin: 0; color: #dbeafe; font-weight: 700; }
 .context-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin-top: 11px; }
 .context-actions button { width: auto; margin: 0; }
-.roll-die { display: inline-grid; width: 78px; height: 78px; margin: 8px; place-items: center; border: 3px solid #dbeafe; border-radius: 16px; color: #172554; background: #fff; box-shadow: 0 7px 19px rgba(0,0,0,.34); font-size: 2.7rem; font-weight: 900; animation: roll .65s ease; }
 @keyframes roll { 30% { transform: rotate(120deg) scale(.7); } 70% { transform: rotate(260deg) scale(1.1); } }
 .connection-notice { margin-top: 10px; padding: 10px 13px; border: 1px solid rgba(251,191,36,.4); border-radius: 12px; color: #fde68a; background: rgba(251,191,36,.1); font-size: .87rem; white-space: pre-line; }
 .overlay-sheet { position: fixed; z-index: 20; bottom: 16px; left: 50%; width: min(92vw,450px); max-height: 84vh; padding: 22px; overflow: auto; background: #15203a; transform: translateX(-50%); }
