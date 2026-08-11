@@ -75,6 +75,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .setup-panel { max-width: 560px; margin: auto; padding: 30px; }
 .setup-panel h2 { margin: 8px 0; font-size: 2rem; }
 .compact-panel { max-width: 450px; }
+.resume-host-card { display: grid; gap: 9px; margin: 20px 0; padding: 15px; border: 1px solid rgba(52,211,153,.55); border-radius: 14px; color: #d1fae5; background: rgba(16,185,129,.1); }
+.resume-host-card span { color: #a7f3d0; font-size: .88rem; }
+.resume-host-card .secondary-button { color: #052e26; background: linear-gradient(135deg,#6ee7b7,#34d399); }
+.resume-host-card .text-button { justify-self: center; color: #cbd5e1; }
 .field-label { display: block; margin: 17px 0 7px; font-weight: 700; }
 .text-input { width: 100%; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; outline: 0; color: #fff; background: rgba(15,23,42,.75); }
 .text-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
@@ -158,7 +162,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .context-actions button { width: auto; margin: 0; }
 .roll-die { display: inline-grid; width: 78px; height: 78px; margin: 8px; place-items: center; border: 3px solid #dbeafe; border-radius: 16px; color: #172554; background: #fff; box-shadow: 0 7px 19px rgba(0,0,0,.34); font-size: 2.7rem; font-weight: 900; animation: roll .65s ease; }
 @keyframes roll { 30% { transform: rotate(120deg) scale(.7); } 70% { transform: rotate(260deg) scale(1.1); } }
-.connection-notice { margin-top: 10px; padding: 10px 13px; border: 1px solid rgba(251,191,36,.4); border-radius: 12px; color: #fde68a; background: rgba(251,191,36,.1); font-size: .87rem; }
+.connection-notice { margin-top: 10px; padding: 10px 13px; border: 1px solid rgba(251,191,36,.4); border-radius: 12px; color: #fde68a; background: rgba(251,191,36,.1); font-size: .87rem; white-space: pre-line; }
 .overlay-sheet { position: fixed; z-index: 20; bottom: 16px; left: 50%; width: min(92vw,450px); max-height: 84vh; padding: 22px; overflow: auto; background: #15203a; transform: translateX(-50%); }
 .overlay-sheet h3 { margin: 8px 0 14px; }
 .sheet-close { float: left; font-size: 1.5rem; }
@@ -167,6 +171,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .tools-qr { max-width: 230px; min-height: 0; margin: auto; }
 .tools-team { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; padding: 9px; border-bottom: 1px solid var(--line); font-size: .9rem; }
 .tools-team button { padding: 6px 8px; font-size: .78rem; }
+.room-tools-actions { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.room-tools-actions .danger-button { width: 100%; }
 .winner-sheet { text-align: center; }
 .winner-sheet > span { font-size: 3.2rem; }
 .winner-sheet h2 { margin: 5px; font-size: 2.15rem; }
@@ -209,6 +215,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .draw-brand { color: #2c5bb6; font-size: .74rem; font-weight: 900; letter-spacing: .8px; }
 .draw-top .eyebrow { flex: 1; color: #334155; text-align: center; }
 .draw-state { position: absolute; z-index: 3; top: calc(env(safe-area-inset-top, 0px) + 68px); right: 50%; max-width: calc(100vw - 32px); margin: 0; padding: 7px 12px; border-radius: 999px; color: #334155; background: rgba(255,255,255,.82); font-size: .78rem; transform: translateX(50%); box-shadow: 0 5px 16px rgba(15,23,42,.11); }
+.rotate-hint { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 105px); right: 50%; max-width: calc(100vw - 32px); margin: 0; padding: 7px 12px; border-radius: 999px; color: #7c2d12; background: rgba(254,243,199,.94); font-size: .76rem; font-weight: 800; transform: translateX(50%); box-shadow: 0 5px 16px rgba(15,23,42,.12); }
 .pair-clock { color: #d51d42; font-size: 1.7rem; font-weight: 900; font-variant-numeric: tabular-nums; }
 .draw-actions { position: absolute; z-index: 3; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; }
 .draw-actions .main-button { grid-column: 1 / -1; width: min(100%, 390px); justify-self: center; margin: 0; padding: 15px 20px; font-size: 1.05rem; box-shadow: 0 8px 22px rgba(37,99,235,.35); }
@@ -272,4 +279,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .hero-copy h1 { letter-spacing: -2px; }
   .draw-state { font-size: .7rem; }
   .draw-actions { grid-template-columns: 1fr auto; }
+}
+@media (orientation: portrait) and (max-width: 670px) {
+  .pair-draw canvas { background-image: linear-gradient(90deg, rgba(148,163,184,.12) 1px, transparent 1px); background-size: 34px 34px; }
 }
