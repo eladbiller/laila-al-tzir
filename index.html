@@ -34,7 +34,7 @@
 
     <section class="view setup-view" id="host-setup-view">
       <button class="back-link" data-go="menu-view" type="button">← חזרה</button>
-      <div class="setup-panel"><span class="eyebrow">טלפון המארח</span><h2>פותחים את לוח המשחק.</h2><p>הטלפון הזה נשאר כלוח. לפני המשחק תפתחו חדר; בזמן המשחק יופיעו רק פעולות קצרות כשצריך.</p><button class="main-button" id="create-room" type="button">צרו חדר משחק <span>←</span></button><p class="quiet-note">אין מספר סבבים. המשחק מסתיים רק כשזוג שבמשבצת הסיום מצליח ב־All Play.</p></div>
+      <div class="setup-panel"><span class="eyebrow">טלפון המארח</span><h2>פותחים את לוח המשחק.</h2><p>הטלפון הזה נשאר כלוח. לפני המשחק תפתחו חדר; בזמן המשחק יופיעו רק פעולות קצרות כשצריך.</p><button class="main-button" id="create-room" type="button">צרו חדר משחק <span>←</span></button><p class="connection-status" id="host-status" aria-live="polite"></p><p class="quiet-note">אין מספר סבבים. המשחק מסתיים רק כשזוג שבמשבצת הסיום מצליח ב־All Play.</p></div>
     </section>
 
     <section class="view setup-view" id="join-setup-view">
@@ -57,7 +57,7 @@
     </section>
 
     <section class="view pair-view" id="pair-view">
-      <div class="pair-header"><span class="brand"><span class="brand-mark">✦</span> PICTIONARY</span><span class="board-connection" id="pair-connection">● מחובר</span></div>
+      <div class="pair-header"><span class="brand"><span class="brand-mark">✦</span> PICTIONARY</span><span class="board-connection" id="pair-connection">● מחובר</span><button class="text-button" id="retry-connection" type="button" hidden>נסה שוב</button></div>
       <section class="pair-wait panel" id="pair-wait"><span class="pair-emoji">🎨</span><h2 id="pair-title">הצטרפתם ללוח!</h2><p id="pair-message">חכו שהמארח יתחיל את המשחק.</p><button class="main-button" id="pair-start-turn" type="button" hidden>התחילו תור <span>▶</span></button></section>
       <section class="pair-word panel" id="pair-word" hidden><div class="category-ribbon" id="pair-category">קטגוריה</div><p class="word-instruction" id="word-instruction">לחצו והחזיקו כדי לראות את המילה</p><button class="hold-card" id="hold-card" type="button"><span class="hold-hint">החזיקו</span><strong id="hold-word">מילה סודית</strong></button><p class="word-footnote" id="word-footnote">שחררו כדי להסתיר שוב.</p><button class="main-button" id="open-pair-canvas" type="button" hidden>עברו ללוח הציור <span>←</span></button></section>
       <section class="pair-draw panel" id="pair-draw" hidden><div class="draw-top"><span class="draw-brand">PICTIONARY</span><span class="eyebrow" id="draw-category">קטגוריה</span><span class="pair-clock" id="pair-clock" hidden>60</span></div><p class="draw-state" id="draw-state">זכרו את המילה וציירו.</p><canvas id="pair-canvas" aria-label="לוח הציור של הזוג"></canvas><div class="draw-actions"><button class="main-button" id="begin-drawing" type="button">התחילו לצייר <span>▶</span></button><button class="secondary-button" id="clear-pair-canvas" type="button">נקה ציור</button><button class="text-button return-word" id="return-to-word" type="button">חזרה לכרטיס</button></div></section>
