@@ -24,10 +24,11 @@ const PEER_OPTIONS = {
 };
 const CONNECTION_TIMEOUT = 10000;
 const HOST_ID_RETRIES = 4;
+const DIE_REVEAL_DURATION = 3000;
 const PATH = [
-  [10,82,'yellow','START'],[20,88,'blue'],[32,89,'orange'],[44,89,'green'],[56,89,'red'],[69,87,'yellow'],[80,82,'blue'],[88,73,'orange'],
-  [90,61,'green'],[89,49,'red'],[90,37,'yellow'],[85,26,'blue'],[77,18,'orange'],[66,12,'green'],[54,10,'red'],[42,11,'yellow'],[30,15,'blue'],[19,23,'orange'],
-  [11,34,'green'],[9,46,'red'],[11,58,'yellow'],[19,67,'blue'],[30,71,'orange'],[42,70,'green'],[54,65,'red'],[63,56,'yellow'],[61,46,'blue'],[52,39,'orange'],[42,40,'green'],[33,47,'red'],[31,57,'yellow'],[40,62,'blue'],[50,56,'orange','FINISH']
+  [8,88,'yellow','START'],[20,88,'blue'],[32,88,'orange'],[44,88,'green'],[56,88,'red'],[68,88,'yellow'],[80,88,'blue'],[92,88,'orange'],
+  [92,75,'green'],[92,62,'red'],[92,49,'yellow'],[92,36,'blue'],[92,23,'orange'],[80,14,'green'],[67,14,'red'],[54,14,'yellow'],[41,14,'blue'],[28,14,'orange'],[15,14,'green'],
+  [8,27,'red'],[8,40,'yellow'],[8,53,'blue'],[8,66,'orange'],[20,72,'green'],[33,72,'red'],[46,72,'yellow'],[59,72,'blue'],[72,72,'orange'],[72,58,'green'],[60,51,'red','FINISH']
 ].map(([x,y,category,mark]) => ({ x, y, category, mark: mark || '' }));
 const FINISH = PATH.length - 1;
 
@@ -106,11 +107,8 @@ function resetPairCanvas() { prepareCanvas(pairCanvas); client.canvasReady = tru
 
 function renderBoard() {
   const board = $('#game-board'); board.replaceChildren();
-  const centre = document.createElement('div'); centre.className = 'board-centre';
-  const centreKicker = document.createElement('span'); centreKicker.textContent = 'DRAW · GUESS · MOVE';
-  const centreTitle = document.createElement('strong'); centreTitle.textContent = 'PICTIONARY';
-  const centreRule = document.createElement('small'); centreRule.textContent = 'ציירו • נחשו • נצחו';
-  centre.append(centreKicker, centreTitle, centreRule); board.append(centre);
+  const route = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); route.classList.add('board-route'); route.setAttribute('viewBox', '0 0 100 100'); route.setAttribute('preserveAspectRatio', 'none');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline'); line.setAttribute('points', PATH.map((space) => `${space.x},${space.y}`).join(' ')); line.setAttribute('fill', 'none'); line.setAttribute('stroke', 'rgba(148, 163, 184, .34)'); line.setAttribute('stroke-width', '1.3'); line.setAttribute('stroke-linejoin', 'round'); line.setAttribute('stroke-linecap', 'round'); route.append(line); board.append(route);
   const symbols = { yellow: '●', blue: '◆', orange: '▲', green: '✦', red: '★' };
   PATH.forEach((space) => { const item = document.createElement('div'); item.className = `board-space ${space.category} ${space.mark === 'START' ? 'start' : ''} ${space.mark === 'FINISH' ? 'finish' : ''}`; item.style.left = `${space.x}%`; item.style.top = `${space.y}%`; item.dataset.mark = space.mark || symbols[space.category]; board.append(item); });
   const groups = new Map(); game.teams.forEach((team, index) => { const list = groups.get(team.position) || []; list.push({ team, index }); groups.set(team.position, list); });
@@ -135,7 +133,7 @@ function setBoardActions() {
   else if (game.phase === 'normal-resolve') { message.textContent = 'האם הניחוש הצליח?'; addButton('✓ הצליחו — גלגלו D6', () => resolveNormal(true), 'main-button'); addButton('✕ לא הצליחו', () => resolveNormal(false), 'danger-button'); }
   else if (game.phase === 'allplay-word') { message.textContent = `All Play פעיל${game.finalAllPlay ? ' — זהו סבב הסיום!' : ''}. אין טיימר.`; addButton('סיימו All Play', finishAllPlay, 'main-button'); }
   else if (game.phase === 'allplay-resolve') {
-    message.textContent = 'בחרו את הזוג שהצליח.'; const select = document.createElement('select'); select.id = 'allplay-winner'; const none = document.createElement('option'); none.value = ''; none.textContent = 'אף זוג לא הצליח'; select.append(none); game.teams.filter((item) => item.online).forEach((item) => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; select.append(option); }); controls.append(select); addButton('הכריעו וגלגלו D6', () => resolveAllPlay(select.value), 'main-button');
+    message.textContent = 'בחרו את הזוג שניחש ראשון ב־All Play.'; const select = document.createElement('select'); select.id = 'allplay-winner'; const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'בחרו זוג שהצליח'; placeholder.disabled = true; placeholder.selected = true; select.append(placeholder); game.teams.filter((item) => item.online).forEach((item) => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; select.append(option); }); controls.append(select); addButton('הכריעו וגלגלו D6', () => { if (!select.value) return toast('בחרו את הזוג שניחש ראשון.'); resolveAllPlay(select.value); }, 'main-button');
   } else if (game.phase === 'rolling') { message.textContent = game.lastRoll ? 'הקובייה נקבעה.' : 'מגלגלים…'; if (game.lastRoll) { const die = document.createElement('span'); die.className = 'roll-die'; die.textContent = game.lastRoll; controls.append(die); } }
   else if (game.phase === 'gameover') { message.textContent = 'המשחק הסתיים.'; addButton('משחק חדש', resetGame, 'main-button'); }
   else message.textContent = 'הלוח מוכן.';
@@ -147,7 +145,7 @@ function renderTools() {
 }
 function renderHost() {
   show('board-view'); $('#board-phase-label').textContent = phaseText(); $('#board-turn').textContent = boardTurnText(); $('#board-status').textContent = game.finalTeamId ? `${game.teams.find((item) => item.id === game.finalTeamId)?.name || 'זוג'} הגיעו לסיום — עליהם להצליח ב־All Play כדי לנצח.` : 'הצבע של המשבצת קובע את סוג הכרטיס.'; $('#board-connection').textContent = `● ${game.teams.filter((team) => team.online).length}/${game.teams.length}`;
-  const timer = $('#host-timer'); visible(timer, game.phase === 'drawing'); timer.textContent = String(game.seconds).padStart(2, '0'); renderBoard(); renderTeamChips($('#board-teams'), true); setBoardActions(); renderConnectionNotice(); renderTools(); visible($('#winner-sheet'), game.phase === 'gameover'); if (game.phase === 'gameover') $('#winner-title').textContent = `${game.teams.find((item) => item.id === game.winnerId)?.name || ''} ניצחו!`;
+  const timer = $('#host-timer'); visible(timer, game.phase === 'drawing'); timer.textContent = String(game.seconds).padStart(2, '0'); const die = $('#dice-display'); visible(die, game.phase === 'rolling' && Boolean(game.lastRoll)); die.textContent = game.lastRoll || ''; renderBoard(); renderTeamChips($('#board-teams')); setBoardActions(); renderConnectionNotice(); renderTools(); visible($('#winner-sheet'), game.phase === 'gameover'); if (game.phase === 'gameover') $('#winner-title').textContent = `${game.teams.find((item) => item.id === game.winnerId)?.name || ''} ניצחו!`;
 }
 function renderLobby() { $('#room-code-display').textContent = game.roomCode; renderTeamChips($('#lobby-teams')); $('#start-game').disabled = game.teams.length < 2; }
 
@@ -186,7 +184,7 @@ function finishAllPlay() { if (game.phase !== 'allplay-word') return; game.phase
 function resolveAllPlay(winnerId) { if (game.phase !== 'allplay-resolve') return; if (!winnerId) return nextTurn(); if (game.finalAllPlay && winnerId === game.finalTeamId) return declareWinner(winnerId); rollTeam(winnerId, false); }
 function rollTeam(teamId) {
   const team = game.teams.find((item) => item.id === teamId); if (!team) return nextTurn(); game.phase = 'rolling'; game.lastRoll = null; broadcastState(); renderHost();
-  setTimeout(() => { const roll = Math.floor(Math.random() * 6) + 1; team.position = Math.min(FINISH, team.position + roll); game.lastRoll = roll; if (team.position === FINISH && !game.finalTeamId) game.finalTeamId = team.id; broadcastState(); renderHost(); setTimeout(() => nextTurn(), 950); }, 620);
+  setTimeout(() => { const roll = Math.floor(Math.random() * 6) + 1; team.position = Math.min(FINISH, team.position + roll); game.lastRoll = roll; if (team.position === FINISH && !game.finalTeamId) game.finalTeamId = team.id; broadcastState(); renderHost(); setTimeout(() => nextTurn(), DIE_REVEAL_DURATION); }, 620);
 }
 function nextTurn() {
   clearInterval(game.timer); game.timer = null; clearRoundData(); if (!game.teams.length) return;
