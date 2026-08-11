@@ -19,9 +19,9 @@ const WORDS = {
 
 const TEAM_COLORS = ['#38bdf8','#f472b6','#fbbf24','#34d399','#a78bfa','#fb923c','#fb7185','#22d3ee'];
 const PATH = [
-  [8,88,'yellow','START'],[20,88,'blue'],[32,88,'orange'],[44,88,'green'],[56,88,'red'],[68,88,'yellow'],[80,88,'blue'],[92,88,'orange'],
-  [92,75,'green'],[92,62,'red'],[92,49,'yellow'],[92,36,'blue'],[92,23,'orange'],[80,14,'green'],[67,14,'red'],[54,14,'yellow'],[41,14,'blue'],[28,14,'orange'],[15,14,'green'],
-  [8,27,'red'],[8,40,'yellow'],[8,53,'blue'],[8,66,'orange'],[20,72,'green'],[33,72,'red'],[46,72,'yellow'],[59,72,'blue'],[72,72,'orange'],[72,58,'green'],[60,51,'red','FINISH']
+  [10,82,'yellow','START'],[20,88,'blue'],[32,89,'orange'],[44,89,'green'],[56,89,'red'],[69,87,'yellow'],[80,82,'blue'],[88,73,'orange'],
+  [90,61,'green'],[89,49,'red'],[90,37,'yellow'],[85,26,'blue'],[77,18,'orange'],[66,12,'green'],[54,10,'red'],[42,11,'yellow'],[30,15,'blue'],[19,23,'orange'],
+  [11,34,'green'],[9,46,'red'],[11,58,'yellow'],[19,67,'blue'],[30,71,'orange'],[42,70,'green'],[54,65,'red'],[63,56,'yellow'],[61,46,'blue'],[52,39,'orange'],[42,40,'green'],[33,47,'red'],[31,57,'yellow'],[40,62,'blue'],[50,56,'orange','FINISH']
 ].map(([x,y,category,mark]) => ({ x, y, category, mark: mark || '' }));
 const FINISH = PATH.length - 1;
 
@@ -81,7 +81,13 @@ function resetPairCanvas() { prepareCanvas(pairCanvas); client.canvasReady = tru
 
 function renderBoard() {
   const board = $('#game-board'); board.replaceChildren();
-  PATH.forEach((space, index) => { const item = document.createElement('div'); item.className = `board-space ${space.category} ${space.mark === 'START' ? 'start' : ''} ${space.mark === 'FINISH' ? 'finish' : ''}`; item.style.left = `${space.x}%`; item.style.top = `${space.y}%`; item.dataset.mark = space.mark; board.append(item); });
+  const centre = document.createElement('div'); centre.className = 'board-centre';
+  const centreKicker = document.createElement('span'); centreKicker.textContent = 'DRAW · GUESS · MOVE';
+  const centreTitle = document.createElement('strong'); centreTitle.textContent = 'PICTIONARY';
+  const centreRule = document.createElement('small'); centreRule.textContent = 'ציירו • נחשו • נצחו';
+  centre.append(centreKicker, centreTitle, centreRule); board.append(centre);
+  const symbols = { yellow: '●', blue: '◆', orange: '▲', green: '✦', red: '★' };
+  PATH.forEach((space) => { const item = document.createElement('div'); item.className = `board-space ${space.category} ${space.mark === 'START' ? 'start' : ''} ${space.mark === 'FINISH' ? 'finish' : ''}`; item.style.left = `${space.x}%`; item.style.top = `${space.y}%`; item.dataset.mark = space.mark || symbols[space.category]; board.append(item); });
   const groups = new Map(); game.teams.forEach((team, index) => { const list = groups.get(team.position) || []; list.push({ team, index }); groups.set(team.position, list); });
   groups.forEach((items, position) => { const space = PATH[position]; const stack = document.createElement('div'); stack.className = 'token-stack'; stack.style.left = `${space.x}%`; stack.style.top = `${space.y}%`; items.forEach(({ team, index }) => { const token = document.createElement('span'); token.className = `token ${team.id === activeTeam()?.id && !['lobby','gameover'].includes(game.phase) ? 'active' : ''} ${team.online ? '' : 'offline'}`; token.style.setProperty('--team-color', team.color || teamColor(index)); token.title = team.name; stack.append(token); }); board.append(stack); });
 }
