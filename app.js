@@ -116,6 +116,16 @@ function updateResumeHostPrompt() {
   visible(card, Boolean(session)); if (!session) return;
   const savedAt = new Date(session.savedAt || Date.now()); $('#resume-host-summary').textContent = `${(session.teams || []).length} זוגות · קוד ${session.roomCode} · נשמר ב־${savedAt.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
 }
+function updateResumePairPrompt() {
+  const saved = readSavedDevice(); const card = $('#resume-pair-card'); if (!card) return;
+  const available = Boolean(saved?.roomCode && saved?.teamId && saved?.reconnectKey && saved?.pairName);
+  visible(card, available); if (!available) return;
+  $('#resume-pair-summary').textContent = `${saved.pairName} · קוד ${saved.roomCode}`;
+}
+function openJoinSetup(linkedCode = '') {
+  show('join-setup-view'); updateResumePairPrompt();
+  if (linkedCode) $('#room-code').value = normalizeCode(linkedCode);
+}
 
 function prepareCanvas(canvas) {
   const bounds = canvas.getBoundingClientRect(); const ratio = Math.max(1, window.devicePixelRatio || 1); const width = Math.max(1, Math.floor(bounds.width * ratio)); const height = Math.max(1, Math.floor(bounds.height * ratio));
@@ -309,7 +319,11 @@ function hostReceive(connection, message) {
     const duplicate = game.teams.find((item) => item.id !== team?.id && normalizedName(item.name) === normalizedName(requestedName));
     if (duplicate) { send(connection, { type: 'rejected', message: 'שם הזוג כבר בשימוש בחדר. בחרו שם אחר.' }); return; }
     if (!team) { if (game.teams.length >= 8) { send(connection, { type: 'rejected', message: 'החדר מלא.' }); return; } team = { id: message.teamId, reconnectKey: message.reconnectKey, name: requestedName, position: 0, online: true, color: teamColor(game.teams.length), lastSeen: Date.now() }; game.teams.push(team); toast(`${team.name} הצטרפו.`); }
-    else { const previous = game.connections.get(team.id); if (previous && previous !== connection) { try { previous.close(); } catch {} } team.online = true; team.lastSeen = Date.now(); team.name = requestedName; toast(`${team.name} התחברו מחדש.`); }
+    else {
+      const previous = game.connections.get(team.id);
+      if (previous && previous !== connection) { try { previous.close(); } catch {} }
+      team.online = true; team.lastSeen = Date.now(); team.name = requestedName; toast(`${team.name} התחברו מחדש.`);
+    }
     game.connections.set(team.id, connection); send(connection, { type: 'accepted', teamId: team.id }); send(connection, { type: 'state', state: snapshot() }); saveHostSession(); renderLobby(); if (game.phase !== 'lobby') { broadcastState(); renderHost(); } return;
   }
   const sender = game.teams.find((item) => item.id === message.teamId); if (sender && game.connections.get(sender.id) === connection) { sender.lastSeen = Date.now(); sender.online = true; }
@@ -360,11 +374,15 @@ function clientReceive(message) {
   if (message.type === 'stroke') { game.strokes.push(message.stroke); if ($('#pair-viewer').offsetParent) redrawViewer(); }
   if (message.type === 'clear-viewer') { game.strokes = []; if ($('#pair-viewer').offsetParent) redrawViewer(); }
 }
-function joinRoom(auto = false) {
-  if (!window.Peer) return toast('שירות החיבור לא נטען.'); const code = normalizeCode($('#room-code').value); const name = cleanName($('#pair-name').value); if (!code || !name) { if (!auto) toast('כתבו שם זוג וקוד חדר.'); return; }
+function joinRoom(resume = false) {
+  if (!window.Peer) return toast('שירות החיבור לא נטען.'); const code = normalizeCode($('#room-code').value); const name = cleanName($('#pair-name').value); if (!code || !name) { if (!resume) toast('כתבו שם זוג וקוד חדר.'); return; }
   clearClientTimers(); client.attempt += 1; client.connected = false; client.ended = false; client.note = ''; $('#join-room').disabled = true;
-  game.mode = 'client'; game.roomCode = code; const saved = readSavedDevice(); if (saved?.roomCode === code && saved.teamId && saved.reconnectKey) { client.teamId = saved.teamId; client.reconnectKey = saved.reconnectKey; client.pairName = saved.pairName || name; } else { client.teamId = `team-${randomId()}`; client.reconnectKey = randomId(); client.pairName = name; }
-  $('#join-status').textContent = auto ? 'מתחברים מחדש…' : 'מתחברים לחדר…'; startClientPeer();
+  game.mode = 'client'; game.roomCode = code; const saved = readSavedDevice(); if (resume && saved?.roomCode === code && saved.teamId && saved.reconnectKey) { client.teamId = saved.teamId; client.reconnectKey = saved.reconnectKey; client.pairName = saved.pairName || name; } else { client.teamId = `team-${randomId()}`; client.reconnectKey = randomId(); client.pairName = name; }
+  $('#join-status').textContent = resume ? 'מחזירים אתכם למשחק הקודם…' : 'מתחברים לחדר…'; startClientPeer();
+}
+function resumePairGame() {
+  const saved = readSavedDevice(); if (!saved?.roomCode || !saved?.pairName) return toast('לא נמצא משחק קודם בטלפון הזה.');
+  $('#room-code').value = saved.roomCode; $('#pair-name').value = saved.pairName; joinRoom(true);
 }
 
 function sendFromPair(message) { send(client.connection, { ...message, teamId: client.teamId }); }
@@ -384,9 +402,9 @@ function generatorWord(category) { const pool = WORDS[category]; const word = po
 function bindFreeCanvas(canvas) { let prev = {}; bindCanvas(canvas, () => {}, () => true); prepareCanvas(canvas); }
 
 function bindEvents() {
-  $('#open-host').onclick = () => show('host-setup-view'); $('#open-join').onclick = () => show('join-setup-view'); $('#open-cards').onclick = () => show('cards-view'); $('#open-solo-canvas').onclick = () => { show('solo-canvas-view'); prepareCanvas($('#solo-canvas')); };
+  $('#open-host').onclick = () => show('host-setup-view'); $('#open-join').onclick = () => openJoinSetup(); $('#open-cards').onclick = () => show('cards-view'); $('#open-solo-canvas').onclick = () => { show('solo-canvas-view'); prepareCanvas($('#solo-canvas')); };
   $$('.back-link').forEach((button) => button.onclick = () => show(button.dataset.go)); $('#fullscreen-button').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
-  $('#create-room').onclick = createRoom; $('#resume-host').onclick = resumeHostGame; $('#discard-host-save').onclick = () => { clearHostSession(); updateResumeHostPrompt(); toast('המשחק השמור נמחק.'); }; $('#join-room').onclick = () => joinRoom(false); $('#room-code').addEventListener('input', (event) => { event.target.value = normalizeCode(event.target.value); });
+  $('#create-room').onclick = createRoom; $('#resume-host').onclick = resumeHostGame; $('#discard-host-save').onclick = () => { clearHostSession(); updateResumeHostPrompt(); toast('המשחק השמור נמחק.'); }; $('#resume-pair').onclick = resumePairGame; $('#join-room').onclick = () => joinRoom(false); $('#room-code').addEventListener('input', (event) => { event.target.value = normalizeCode(event.target.value); });
   $('#retry-connection').onclick = () => { if (game.mode !== 'client') return; client.reconnectAttempts = 0; setJoinStatus('מנסים להתחבר מחדש…'); startClientPeer(); };
   $('#copy-code').onclick = copyRoomCode; $('#copy-code-tools').onclick = copyRoomCode; $('#start-game').onclick = hostStartGame; $('#open-room-tools').onclick = () => { $('#room-tools').hidden = false; }; $('#close-room-tools').onclick = () => { $('#room-tools').hidden = true; }; $('#end-game').onclick = endGame; $('#new-game').onclick = resetGame;
   $('#pair-start-turn').onclick = () => sendFromPair({ type: 'start-turn' }); $('#open-pair-canvas').onclick = openPairCanvas; $('#begin-drawing').onclick = beginPairDrawing; $('#clear-pair-canvas').onclick = clearPairDrawing; $('#return-to-word').onclick = () => { if (game.phase === 'word') { client.canvasOpen = false; client.canvasReady = false; renderPair(); } };
@@ -399,11 +417,8 @@ function bindEvents() {
 }
 function copyRoomCode() { navigator.clipboard?.writeText(game.roomCode).then(() => toast('קוד החדר הועתק.')).catch(() => toast(`קוד החדר: ${game.roomCode}`)); }
 function autoReconnectFromLink() {
-  const saved = readSavedDevice(); const linkedCode = normalizeCode(new URLSearchParams(location.search).get('join')); const code = linkedCode || normalizeCode(saved?.roomCode);
-  if (!code) return;
-  $('#room-code').value = code;
-  if (saved?.roomCode === code && saved.pairName) { $('#pair-name').value = saved.pairName; show('join-setup-view'); setJoinStatus('מחזירים אתכם לחדר האחרון…'); setTimeout(() => joinRoom(true), 150); }
-  else if (linkedCode) show('join-setup-view');
+  const linkedCode = normalizeCode(new URLSearchParams(location.search).get('join'));
+  if (linkedCode) openJoinSetup(linkedCode);
 }
 function init() { bindEvents(); updateResumeHostPrompt(); autoReconnectFromLink(); }
 init();
