@@ -110,8 +110,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .board-status { margin: 1px 35px 10px; color: var(--muted); font-size: .9rem; font-weight: 700; text-align: center; }
 .game-board {
   position: relative;
-  width: min(100%, 500px);
-  aspect-ratio: 1.05;
+  width: min(100%, 530px);
+  aspect-ratio: 1.35;
   margin: auto;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -126,7 +126,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .board-space {
   position: absolute;
   z-index: 2;
-  width: 8.5%;
+  width: 10.5%;
   aspect-ratio: 1;
   border: 1px solid rgba(255,255,255,.2);
   border-radius: 10px;
@@ -252,7 +252,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .join-card { max-width: 320px; margin: auto; }
   .board-header h2 { font-size: 1.2rem; }
   .board-status { margin: 1px 30px 8px; }
-  .board-space { width: 8.5%; border-width: 1px; }
+  .board-space { width: 10.5%; border-width: 1px; }
   .token { width: 13px; height: 13px; }
   .token.active { width: 24px; height: 24px; }
   .timer-bubble { top: 45px; left: 14px; width: 54px; height: 54px; font-size: 1.35rem; }
@@ -268,7 +268,7 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 390px) {
   .board-header { gap: 6px; }
   .board-utility, .board-connection { padding: 6px; font-size: .72rem; }
-  .board-space { width: 8.5%; }
+  .board-space { width: 10.5%; }
   .hero-copy h1 { letter-spacing: -2px; }
   .draw-state { font-size: .7rem; }
   .draw-actions { grid-template-columns: 1fr auto; }

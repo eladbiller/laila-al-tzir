@@ -26,10 +26,11 @@ const CONNECTION_TIMEOUT = 10000;
 const HOST_ID_RETRIES = 4;
 const DIE_REVEAL_DURATION = 3000;
 const PATH = [
-  [7,90,'yellow','START'],[16,90,'blue'],[25,90,'orange'],[34,90,'green'],[43,90,'red'],[52,90,'yellow'],[61,90,'blue'],[70,90,'orange'],[79,90,'green'],[88,90,'red'],
-  [93,82,'yellow'],[93,73,'blue'],[93,64,'orange'],[93,55,'green'],[93,46,'red'],[93,37,'yellow'],[93,28,'blue'],[92,19,'orange'],
-  [83,11,'green'],[74,11,'red'],[65,11,'yellow'],[56,11,'blue'],[47,11,'orange'],[38,11,'green'],[29,11,'red'],[20,11,'yellow'],[11,17,'blue'],
-  [7,26,'orange'],[7,35,'green'],[7,44,'red'],[7,53,'yellow'],[7,62,'blue'],[7,71,'orange'],[7,80,'green'],[17,77,'red'],[28,77,'yellow'],[39,77,'blue'],[50,77,'orange'],[61,77,'green'],[61,64,'red','FINISH']
+  [9,12,'yellow','START'],[20.5,12,'blue'],[32,12,'orange'],[43.5,12,'green'],[55,12,'red'],[66.5,12,'yellow'],[78,12,'blue'],[89.5,12,'orange'],
+  [89.5,31,'green'],[78,31,'red'],[66.5,31,'yellow'],[55,31,'blue'],[43.5,31,'orange'],[32,31,'green'],[20.5,31,'red'],[9,31,'yellow'],
+  [9,50,'blue'],[20.5,50,'orange'],[32,50,'green'],[43.5,50,'red'],[55,50,'yellow'],[66.5,50,'blue'],[78,50,'orange'],[89.5,50,'green'],
+  [89.5,69,'red'],[78,69,'yellow'],[66.5,69,'blue'],[55,69,'orange'],[43.5,69,'green'],[32,69,'red'],[20.5,69,'yellow'],[9,69,'blue'],
+  [9,88,'orange'],[20.5,88,'green'],[32,88,'red'],[43.5,88,'yellow'],[55,88,'blue'],[66.5,88,'orange'],[78,88,'green'],[89.5,88,'red','FINISH']
 ].map(([x,y,category,mark]) => ({ x, y, category, mark: mark || '' }));
 const FINISH = PATH.length - 1;
 
@@ -109,9 +110,10 @@ function resetPairCanvas() { prepareCanvas(pairCanvas); client.canvasReady = tru
 function renderBoard() {
   const board = $('#game-board'); board.replaceChildren();
   const route = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); route.classList.add('board-route'); route.setAttribute('viewBox', '0 0 100 100'); route.setAttribute('preserveAspectRatio', 'none');
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline'); line.setAttribute('points', PATH.map((space) => `${space.x},${space.y}`).join(' ')); line.setAttribute('fill', 'none'); line.setAttribute('stroke', 'rgba(148, 163, 184, .34)'); line.setAttribute('stroke-width', '1.3'); line.setAttribute('stroke-linejoin', 'round'); line.setAttribute('stroke-linecap', 'round'); route.append(line); board.append(route);
+  [[7,8],[15,16],[23,24],[31,32]].forEach(([from, to]) => { const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); line.setAttribute('x1', PATH[from].x); line.setAttribute('y1', PATH[from].y); line.setAttribute('x2', PATH[to].x); line.setAttribute('y2', PATH[to].y); line.setAttribute('stroke', '#2dd4bf'); line.setAttribute('stroke-width', '1.2'); line.setAttribute('stroke-linecap', 'round'); route.append(line); }); board.append(route);
   const symbols = { yellow: '●', blue: '◆', orange: '▲', green: '✦', red: '★' };
-  PATH.forEach((space) => { const item = document.createElement('div'); item.className = `board-space ${space.category} ${space.mark === 'START' ? 'start' : ''} ${space.mark === 'FINISH' ? 'finish' : ''}`; item.style.left = `${space.x}%`; item.style.top = `${space.y}%`; item.dataset.mark = space.mark || symbols[space.category]; board.append(item); });
+  const labels = { START: 'התחלה', FINISH: 'סיום 🏆' };
+  PATH.forEach((space) => { const item = document.createElement('div'); item.className = `board-space ${space.category} ${space.mark === 'START' ? 'start' : ''} ${space.mark === 'FINISH' ? 'finish' : ''}`; item.style.left = `${space.x}%`; item.style.top = `${space.y}%`; item.dataset.mark = labels[space.mark] || symbols[space.category]; board.append(item); });
   const groups = new Map(); game.teams.forEach((team, index) => { const list = groups.get(team.position) || []; list.push({ team, index }); groups.set(team.position, list); });
   groups.forEach((items, position) => { const space = PATH[position]; const stack = document.createElement('div'); stack.className = 'token-stack'; stack.style.left = `${space.x}%`; stack.style.top = `${space.y}%`; items.forEach(({ team, index }) => { const token = document.createElement('span'); token.className = `token ${team.id === activeTeam()?.id && !['lobby','gameover'].includes(game.phase) ? 'active' : ''} ${team.online ? '' : 'offline'}`; token.style.setProperty('--team-color', team.color || teamColor(index)); token.title = team.name; stack.append(token); }); board.append(stack); });
 }
