@@ -4,100 +4,72 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0f172a" />
-  <meta name="description" content="Pictionary בעברית עם מסך משותף וטלפונים כשלטים" />
-  <title>PICTIONARY | מסך משותף</title>
+  <meta name="description" content="משחק Pictionary בעברית לזוגות, עם לוח מארח וטלפון לכל זוג" />
+  <title>PICTIONARY</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="glow glow-a"></div><div class="glow glow-b"></div>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
   <main class="app-shell">
     <header class="site-header">
       <a class="brand" href="./" aria-label="Pictionary - דף הבית"><span class="brand-mark">✦</span> PICTIONARY</a>
       <button class="text-button" id="fullscreen-button" type="button">⛶ מסך מלא</button>
     </header>
 
-    <section class="view is-active" id="welcome-view">
+    <section class="view is-active" id="menu-view">
       <div class="hero-grid">
-        <div class="hero-copy">
-          <span class="eyebrow">PARTY GAME · ציור · ניחושים</span>
-          <h1>מציירים, מנחשים,<br /><em>צוברים נקודות.</em></h1>
-          <p class="lede">Pictionary אמיתי — עם מסך מרכזי בטלוויזיה וטלפון אישי לכל צייר. המילה הסודית נשארת בטלפון, והציור עולה למסך לכולם בזמן אמת.</p>
-          <div class="feature-list"><span>🖥️ מסך משותף</span><span>📱 טלפונים כשלטים</span><span>🎨 ציור חי</span></div>
-        </div>
-        <aside class="hero-card">
-          <div class="sketch-art" aria-hidden="true"><i></i><i></i><i></i><b>?</b></div>
-          <p class="card-kicker">איך משחקים?</p>
-          <ol><li>פותחים חדר על המסך הגדול</li><li>כל שחקן סורק QR ומצטרף מהטלפון</li><li>בתור שלו, הצייר רואה מילה ומצייר</li></ol>
-        </aside>
+        <div class="hero-copy"><span class="eyebrow">PARTY GAME · ציור · זוגות</span><h1>מציירים.<br /><em>מנחשים. מתקדמים.</em></h1><p class="lede">Pictionary לפי חוקי הלוח המקוריים: זוגות, צבעי קטגוריות, All Play, קוביית D6 ומרוץ אל המשבצת האחרונה.</p><div class="feature-list"><span>📱 טלפון לכל זוג</span><span>🎨 ציור חי</span><span>🎲 D6 אמיתי</span></div></div>
+        <aside class="hero-card"><div class="sketch-art" aria-hidden="true"><i></i><i></i><i></i><b>?</b></div><p class="card-kicker">איך משחקים?</p><ol><li>המארח פותח לוח וחדר</li><li>כל זוג מצטרף מהטלפון שלו</li><li>מציירים, מצליחים ומתקדמים</li></ol></aside>
       </div>
       <div class="mode-cards">
-        <button class="mode-card primary-card" id="open-host-setup" type="button"><span class="mode-icon">🖥️</span><span class="mode-copy"><strong>פתחו מסך משותף</strong><small>לטלוויזיה, מקרן או מחשב</small></span><span class="arrow">←</span></button>
-        <button class="mode-card" id="open-join-setup" type="button"><span class="mode-icon">📱</span><span class="mode-copy"><strong>הצטרפו מהטלפון</strong><small>עם קוד החדר מהמסך</small></span><span class="arrow">←</span></button>
-        <button class="mode-card muted-card" id="open-local-setup" type="button"><span class="mode-icon">🤝</span><span class="mode-copy"><strong>משחקים על מכשיר אחד</strong><small>למסיבה קטנה בלי חיבור</small></span><span class="arrow">←</span></button>
+        <button class="mode-card primary-card" id="open-host" type="button"><span class="mode-icon">🎲</span><span class="mode-copy"><strong>פתחו לוח משחק</strong><small>טלפון ייעודי למארח וללוח</small></span><span class="arrow">←</span></button>
+        <button class="mode-card" id="open-join" type="button"><span class="mode-icon">🤝</span><span class="mode-copy"><strong>הצטרפו כזוג</strong><small>טלפון אחד לכל זוג</small></span><span class="arrow">←</span></button>
+        <button class="mode-card muted-card" id="open-cards" type="button"><span class="mode-icon">🃏</span><span class="mode-copy"><strong>כרטיסיות מילים</strong><small>למשחק חופשי ללא לוח</small></span><span class="arrow">←</span></button>
+        <button class="mode-card muted-card" id="open-solo-canvas" type="button"><span class="mode-icon">🎨</span><span class="mode-copy"><strong>לוח ציור</strong><small>ציור חופשי כמו במקור</small></span><span class="arrow">←</span></button>
       </div>
     </section>
 
     <section class="view setup-view" id="host-setup-view">
-      <button class="back-link" type="button" data-go="welcome-view">← חזרה</button>
-      <div class="setup-panel">
-        <span class="eyebrow">מסך משותף</span><h2>מקימים את חדר הציור.</h2>
-        <p>פתחו את המסך הזה בטלוויזיה או במקרן. השחקנים יצטרפו אליו מהטלפונים שלהם — והצייר יקבל שם את המילה ואת לוח הציור.</p>
-        <label class="field-label" for="host-name">שם המארח <span>(אופציונלי)</span></label>
-        <input id="host-name" class="text-input" maxlength="20" placeholder="למשל: דנה" autocomplete="nickname" />
-        <label class="field-label" for="round-count">כמה סבבים?</label>
-        <div class="round-picker" id="round-picker" role="radiogroup" aria-label="מספר סבבים"><button type="button" data-rounds="5">5</button><button type="button" data-rounds="8" class="is-selected">8</button><button type="button" data-rounds="12">12</button></div>
-        <button class="main-button" id="create-room-button" type="button">צרו חדר משותף <span>←</span></button>
-        <p class="quiet-note">החיבור הוא ישירות בין הדפדפנים. השאירו את המסך הגדול פתוח בזמן המשחק.</p>
-      </div>
+      <button class="back-link" data-go="menu-view" type="button">← חזרה</button>
+      <div class="setup-panel"><span class="eyebrow">טלפון המארח</span><h2>פותחים את לוח המשחק.</h2><p>הטלפון הזה נשאר כלוח. לפני המשחק תפתחו חדר; בזמן המשחק יופיעו רק פעולות קצרות כשצריך.</p><button class="main-button" id="create-room" type="button">צרו חדר משחק <span>←</span></button><p class="quiet-note">אין מספר סבבים. המשחק מסתיים רק כשזוג שבמשבצת הסיום מצליח ב־All Play.</p></div>
     </section>
 
     <section class="view setup-view" id="join-setup-view">
-      <button class="back-link" type="button" data-go="welcome-view">← חזרה</button>
-      <div class="setup-panel compact-panel">
-        <span class="eyebrow">טלפון כשלט</span><h2>נכנסים למשחק.</h2><p>סרקו את ה־QR מהמסך המשותף או הזינו את קוד החדר.</p>
-        <label class="field-label" for="join-name">השם שלכם</label><input id="join-name" class="text-input" maxlength="20" placeholder="למשל: יואב" autocomplete="nickname" />
-        <label class="field-label" for="room-code-input">קוד החדר</label><input id="room-code-input" class="text-input code-input" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" />
-        <button class="main-button" id="join-room-button" type="button">הצטרפו לחדר <span>←</span></button><p class="connection-status" id="join-status" aria-live="polite"></p>
-      </div>
+      <button class="back-link" data-go="menu-view" type="button">← חזרה</button>
+      <div class="setup-panel compact-panel"><span class="eyebrow">זוג מצטרף</span><h2>נכנסים ללוח.</h2><p>כל זוג משתמש בטלפון אחד. סרקו QR או הזינו את הקוד מהמארח.</p><label class="field-label" for="pair-name">שם הזוג</label><input class="text-input" id="pair-name" maxlength="20" placeholder="למשל: נועה ודן" autocomplete="nickname" /><label class="field-label" for="room-code">קוד החדר</label><input class="text-input code-input" id="room-code" maxlength="6" placeholder="ABC123" autocapitalize="characters" autocomplete="off" /><button class="main-button" id="join-room" type="button">הצטרפו למשחק <span>←</span></button><p class="connection-status" id="join-status" aria-live="polite"></p></div>
     </section>
 
-    <section class="view" id="lobby-view">
-      <div class="lobby-layout">
-        <div class="lobby-main"><span class="eyebrow">החדר פתוח</span><h2>כולם עם מכחול ביד?</h2><p>סרקו את הקוד, בחרו שם, ואז התחילו כשהקבוצה מוכנה.</p>
-          <div class="room-code-card"><span>קוד החדר</span><strong id="room-code-display">------</strong><button class="copy-button" id="copy-room-button" type="button">העתק קוד</button></div>
-          <div class="lobby-actions"><button class="main-button" id="start-game-button" type="button" disabled>מתחילים לשחק <span>✦</span></button><button class="secondary-button" id="add-demo-player-button" type="button">הוספת שחקן לדוגמה</button></div>
-          <p class="quiet-note">נדרשים לפחות שני שחקנים. הצייר של כל סבב מקבל את המילה הסודית בטלפון שלו בלבד.</p>
-        </div>
-        <aside class="join-card"><div class="qr-frame" id="qr-code" aria-label="קוד QR להצטרפות"></div><strong>סרקו והצטרפו</strong><span>מצלמת הטלפון תפתח את דף השלט.</span></aside>
-      </div><div class="player-lobby-list" id="lobby-players"></div>
+    <section class="view" id="host-lobby-view">
+      <div class="lobby-layout"><div class="lobby-main"><span class="eyebrow">החדר פתוח</span><h2>מחכים לזוגות.</h2><p>סרקו את ה־QR או הזינו את קוד החדר. כשיש לפחות שני זוגות אפשר להתחיל.</p><div class="room-code-card"><span>קוד החדר</span><strong id="room-code-display">------</strong><button class="copy-button" id="copy-code" type="button">העתק קוד</button></div><button class="main-button" id="start-game" type="button" disabled>התחילו משחק <span>✦</span></button></div><aside class="join-card"><div class="qr-frame" id="qr-code" aria-label="QR להצטרפות"></div><strong>סרקו והצטרפו</strong><span>טלפון אחד לכל זוג</span></aside></div><div class="team-list" id="lobby-teams"></div>
     </section>
 
-    <section class="view" id="game-view">
-      <div class="game-topline"><button class="leave-game" id="leave-game-button" type="button">סיום משחק</button><div class="round-counter" id="round-counter">סבב 1 / 8</div><div class="connection-pill" id="connection-pill">● מסך משותף</div></div>
-      <div class="turn-banner" id="turn-banner">מחכים להתחלה…</div>
-      <div class="game-grid">
-        <section class="draw-stage"><div class="stage-heading"><div><span class="eyebrow" id="category-label">קטגוריה</span><h2 id="stage-title">הלוח מוכן לציור</h2></div><div class="timer" id="timer-display">60</div></div>
-          <div class="secret-status" id="secret-status">🔒 המילה הסודית מופיעה רק בטלפון של הצייר.</div><canvas id="shared-canvas" aria-label="לוח הציור המשותף"></canvas>
-        </section>
-        <aside class="game-side"><div class="word-reveal" id="word-reveal" hidden><span>המילה הייתה</span><strong id="revealed-word">—</strong></div><div class="scoreboard" id="scoreboard"></div></aside>
-      </div>
-      <div class="host-controls" id="host-controls"><p id="host-help">כשהצייר מוכן, התחילו את הסבב. המילה תישלח רק אליו.</p><div class="host-action-row"><select id="category-select" aria-label="קטגוריית מילה"><option value="random">🎲 קטגוריה אקראית</option><option value="yellow">🦁 אנשים, מקומות וחיות</option><option value="blue">📦 חפצים</option><option value="orange">🏃 פעולות</option><option value="green">🧩 קשה</option><option value="red">🔥 All Play</option></select><button class="main-button" id="host-primary-button" type="button">התחל סבב <span>▶</span></button></div><div class="review-actions" id="review-actions" hidden><button class="success-button" id="correct-button" type="button">✓ ניחשו נכון — נקודה</button><button class="danger-button" id="skip-button" type="button">הפעם לא</button></div></div>
+    <section class="view" id="board-view">
+      <div class="board-header"><button class="board-utility" id="open-room-tools" type="button">☰ חדר</button><div><span class="eyebrow" id="board-phase-label">תור רגיל</span><h2 id="board-turn">מחכים לתחילת המשחק</h2></div><div class="board-connection" id="board-connection">● 0/0</div></div>
+      <section class="game-board-shell"><div class="board-status" id="board-status">הלוח מוכן.</div><div class="timer-bubble" id="host-timer" hidden>60</div><div class="game-board" id="game-board" aria-label="לוח המשחק"></div></section>
+      <div class="board-teams" id="board-teams"></div>
+      <section class="context-sheet" id="board-actions" aria-live="polite"></section>
+      <section class="connection-notice" id="connection-notice" hidden></section>
+      <section class="overlay-sheet" id="room-tools" hidden><button class="sheet-close" id="close-room-tools" type="button">×</button><span class="eyebrow">ניהול חדר</span><h3>הצטרפות וחיבור</h3><div class="tools-code"><strong id="tools-code">------</strong><button class="copy-button" id="copy-code-tools" type="button">העתק</button></div><div class="tools-qr" id="tools-qr"></div><div id="tools-teams"></div></section>
+      <section class="overlay-sheet winner-sheet" id="winner-sheet" hidden><span>🏆</span><h2 id="winner-title">ניצחתם!</h2><p>הגעתם לסיום והצלחתם ב־All Play.</p><button class="main-button" id="new-game" type="button">משחק חדש</button></section>
     </section>
 
-    <section class="view setup-view" id="local-setup-view">
-      <button class="back-link" type="button" data-go="welcome-view">← חזרה</button><div class="setup-panel"><span class="eyebrow">על אותו מכשיר</span><h2>מי משחק?</h2><p>הוסיפו 2–6 שחקנים. בתור שלו, הצייר מסתכל על המילה ומעביר את המכשיר לציור.</p><div class="add-name-row"><input id="local-player-name" class="text-input" maxlength="20" placeholder="שם שחקן" /><button class="secondary-button" id="add-local-player-button" type="button">הוספה</button></div><div class="local-player-list" id="local-players"></div><button class="main-button" id="start-local-game-button" type="button" disabled>מתחילים לשחק <span>✦</span></button></div>
+    <section class="view pair-view" id="pair-view">
+      <div class="pair-header"><span class="brand"><span class="brand-mark">✦</span> PICTIONARY</span><span class="board-connection" id="pair-connection">● מחובר</span></div>
+      <section class="pair-wait panel" id="pair-wait"><span class="pair-emoji">🎨</span><h2 id="pair-title">הצטרפתם ללוח!</h2><p id="pair-message">חכו שהמארח יתחיל את המשחק.</p><button class="main-button" id="pair-start-turn" type="button" hidden>התחילו תור <span>▶</span></button></section>
+      <section class="pair-word panel" id="pair-word" hidden><div class="category-ribbon" id="pair-category">קטגוריה</div><p class="word-instruction" id="word-instruction">לחצו והחזיקו כדי לראות את המילה</p><button class="hold-card" id="hold-card" type="button"><span class="hold-hint">החזיקו</span><strong id="hold-word">מילה סודית</strong></button><p class="word-footnote" id="word-footnote">שחררו כדי להסתיר שוב.</p><button class="main-button" id="open-pair-canvas" type="button" hidden>עברו ללוח הציור <span>←</span></button></section>
+      <section class="pair-draw panel" id="pair-draw" hidden><div class="draw-top"><span class="eyebrow" id="draw-category">קטגוריה</span><span class="pair-clock" id="pair-clock" hidden>60</span></div><p class="draw-state" id="draw-state">זכרו את המילה וציירו.</p><canvas id="pair-canvas" aria-label="לוח הציור של הזוג"></canvas><button class="main-button" id="begin-drawing" type="button">התחילו לצייר <span>▶</span></button><button class="secondary-button full-width" id="clear-pair-canvas" type="button">נקה ציור</button><button class="text-button return-word" id="return-to-word" type="button">חזרה לכרטיס</button></section>
+      <section class="pair-viewer panel" id="pair-viewer" hidden><div class="viewer-title"><span class="eyebrow">הזוג המצייר</span><span class="pair-clock" id="viewer-clock">60</span></div><canvas id="viewer-canvas" aria-label="ציור חי"></canvas><button class="mini-word-card" id="viewer-word-card" type="button"><span id="viewer-category">קטגוריה</span><strong id="viewer-word">החזיקו למילה</strong></button></section>
     </section>
 
-    <section class="view phone-view" id="phone-view">
-      <div class="phone-top"><span class="brand"><span class="brand-mark">✦</span> PICTIONARY</span><span class="connection-pill" id="phone-connection">● מחובר</span></div>
-      <div class="phone-wait" id="phone-wait"><span>🎨</span><h2 id="phone-title">אתם בחדר!</h2><p id="phone-message">חכו שהמארח יתחיל. המסך הגדול יציג את מצב המשחק.</p></div>
-      <div class="phone-draw" id="phone-draw" hidden><span class="eyebrow" id="phone-category">קטגוריה</span><p class="phone-turn-label">זה התור שלכם לצייר</p><div class="phone-word"><span>המילה שלכם</span><strong id="phone-word">—</strong></div><div class="phone-timer" id="phone-timer">60</div><p class="draw-tip">ציירו כאן — הציור יופיע מיד על המסך המשותף.</p><canvas id="phone-canvas" aria-label="לוח הציור שלכם"></canvas><button class="secondary-button full-width" id="phone-clear-button" type="button">נקה ציור</button></div>
-    </section>
+    <section class="view setup-view" id="cards-view"><button class="back-link" data-go="menu-view" type="button">← חזרה</button><div class="setup-panel"><span class="eyebrow">כרטיסיות מילים</span><h2>בחרו קטגוריה.</h2><div class="category-buttons"><button data-category="yellow" class="cat-yellow" type="button">🦁 אנשים, מקומות וחיות</button><button data-category="blue" class="cat-blue" type="button">📦 חפצים</button><button data-category="orange" class="cat-orange" type="button">🏃 פעולות</button><button data-category="green" class="cat-green" type="button">🧩 קשה</button><button data-category="red" class="cat-red" type="button">🔥 All Play</button></div><div class="generator-card" id="generator-card" hidden><span id="generator-category"></span><strong id="generator-word">—</strong><button class="secondary-button" id="toggle-generator-word" type="button">הסתר / הצג</button></div></div></section>
+    <section class="view solo-view" id="solo-canvas-view"><button class="back-link solo-back" data-go="menu-view" type="button">← חזרה</button><canvas id="solo-canvas" aria-label="לוח ציור חופשי"></canvas><button class="danger-button solo-clear" id="clear-solo" type="button">נקה הכל</button></section>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script src="app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
