@@ -97,7 +97,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .join-card span { display: block; margin-top: 5px; color: var(--muted); font-size: .85rem; }
 .qr-frame, .tools-qr { display: grid; min-height: 205px; margin-bottom: 12px; padding: 10px; direction: ltr; place-items: center; border-radius: 14px; background: #fff; }
 .team-list, .board-teams { display: flex; flex-wrap: wrap; gap: 9px; }
-.team-chip { position: relative; padding: 9px 12px 9px 26px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.07); font-weight: 700; }
+.team-chip { position: relative; padding: 9px 26px 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.07); font-weight: 700; }
 .team-chip::before { position: absolute; top: 50%; right: 10px; width: 9px; height: 9px; border-radius: 50%; content: ''; background: var(--team-color, #38bdf8); box-shadow: 0 0 8px var(--team-color, #38bdf8); transform: translateY(-50%); }
 .team-chip.offline { opacity: .45; }
 
@@ -126,7 +126,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .board-space {
   position: absolute;
   z-index: 2;
-  width: 9.5%;
+  width: 8.5%;
   aspect-ratio: 1;
   border: 1px solid rgba(255,255,255,.2);
   border-radius: 10px;
@@ -138,10 +138,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .board-space.orange { background: linear-gradient(135deg,#fb923c,#ea580c); }
 .board-space.green { background: linear-gradient(135deg,#34d399,#047857); }
 .board-space.red { background: linear-gradient(135deg,#fb7185,#b91c1c); }
-.board-space.start, .board-space.finish { border-color: #fff; color: #172554; background: #f8fafc; }
+.board-space.start { border-color: #fff; color: #172554; background: linear-gradient(135deg,#fcd34d,#d97706); }
+.board-space.finish { border-color: #fff; color: #fff; background: linear-gradient(135deg,#fb7185,#b91c1c); }
 .board-space::after { position: absolute; inset: 0; display: grid; place-items: center; color: #102042; content: attr(data-mark); font-size: clamp(.55rem,2vw,1rem); font-weight: 900; }
+.board-space.finish::after { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
 .board-space.start::after, .board-space.finish::after { font-size: clamp(.32rem,1.1vw,.5rem); letter-spacing: .3px; }
-.token-stack { position: absolute; z-index: 3; display: flex; width: 11%; aspect-ratio: 1; flex-wrap: wrap; align-content: center; justify-content: center; gap: 1px; transform: translate(-50%,-50%); }
+.token-stack { position: absolute; z-index: 3; display: flex; width: 10%; aspect-ratio: 1; flex-wrap: wrap; align-content: center; justify-content: center; gap: 1px; transform: translate(-50%,-50%); }
 .token { width: 16px; height: 16px; border: 2px solid #fff; border-radius: 50%; background: var(--team-color); box-shadow: 0 2px 5px rgba(0,0,0,.75); transition: .42s; }
 .token.active { width: 28px; height: 28px; border-width: 3px; box-shadow: 0 0 0 4px rgba(255,255,255,.5), 0 0 20px 5px var(--team-color), 0 4px 8px rgba(0,0,0,.8); animation: activeToken 1.2s infinite; }
 .token.offline { filter: grayscale(1); opacity: .42; }
@@ -250,7 +252,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .join-card { max-width: 320px; margin: auto; }
   .board-header h2 { font-size: 1.2rem; }
   .board-status { margin: 1px 30px 8px; }
-  .board-space { width: 10%; border-width: 1px; }
+  .board-space { width: 8.5%; border-width: 1px; }
   .token { width: 13px; height: 13px; }
   .token.active { width: 24px; height: 24px; }
   .timer-bubble { top: 45px; left: 14px; width: 54px; height: 54px; font-size: 1.35rem; }
@@ -266,7 +268,7 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 390px) {
   .board-header { gap: 6px; }
   .board-utility, .board-connection { padding: 6px; font-size: .72rem; }
-  .board-space { width: 10.25%; }
+  .board-space { width: 8.5%; }
   .hero-copy h1 { letter-spacing: -2px; }
   .draw-state { font-size: .7rem; }
   .draw-actions { grid-template-columns: 1fr auto; }

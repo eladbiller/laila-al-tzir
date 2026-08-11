@@ -26,9 +26,10 @@ const CONNECTION_TIMEOUT = 10000;
 const HOST_ID_RETRIES = 4;
 const DIE_REVEAL_DURATION = 3000;
 const PATH = [
-  [8,88,'yellow','START'],[20,88,'blue'],[32,88,'orange'],[44,88,'green'],[56,88,'red'],[68,88,'yellow'],[80,88,'blue'],[92,88,'orange'],
-  [92,75,'green'],[92,62,'red'],[92,49,'yellow'],[92,36,'blue'],[92,23,'orange'],[80,14,'green'],[67,14,'red'],[54,14,'yellow'],[41,14,'blue'],[28,14,'orange'],[15,14,'green'],
-  [8,27,'red'],[8,40,'yellow'],[8,53,'blue'],[8,66,'orange'],[20,72,'green'],[33,72,'red'],[46,72,'yellow'],[59,72,'blue'],[72,72,'orange'],[72,58,'green'],[60,51,'red','FINISH']
+  [7,90,'yellow','START'],[16,90,'blue'],[25,90,'orange'],[34,90,'green'],[43,90,'red'],[52,90,'yellow'],[61,90,'blue'],[70,90,'orange'],[79,90,'green'],[88,90,'red'],
+  [93,82,'yellow'],[93,73,'blue'],[93,64,'orange'],[93,55,'green'],[93,46,'red'],[93,37,'yellow'],[93,28,'blue'],[92,19,'orange'],
+  [83,11,'green'],[74,11,'red'],[65,11,'yellow'],[56,11,'blue'],[47,11,'orange'],[38,11,'green'],[29,11,'red'],[20,11,'yellow'],[11,17,'blue'],
+  [7,26,'orange'],[7,35,'green'],[7,44,'red'],[7,53,'yellow'],[7,62,'blue'],[7,71,'orange'],[7,80,'green'],[17,77,'red'],[28,77,'yellow'],[39,77,'blue'],[50,77,'orange'],[61,77,'green'],[61,64,'red','FINISH']
 ].map(([x,y,category,mark]) => ({ x, y, category, mark: mark || '' }));
 const FINISH = PATH.length - 1;
 
