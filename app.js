@@ -174,11 +174,11 @@ function setBoardActions() {
   else if (game.phase === 'word') message.textContent = 'הכרטיס מופיע אצל הזוגות. הזוג הפעיל פותח את לוח הציור.';
   else if (game.phase === 'drawing') { message.textContent = 'הטיימר רץ. הפעולה הזאת מופיעה רק עד שהסבב מסתיים.'; addButton('סיימו תור', endNormalDrawing, 'danger-button'); }
   else if (game.phase === 'normal-resolve') { message.textContent = 'האם הניחוש הצליח?'; addButton('✓ הצליחו — גלגלו D6', () => resolveNormal(true), 'main-button'); addButton('✕ לא הצליחו', () => resolveNormal(false), 'danger-button'); }
-  else if (game.phase === 'allplay-word') { message.textContent = `All Play פעיל${game.finalAllPlay ? ' — זהו סבב הסיום!' : ''}. אין טיימר.`; addButton('סיימו All Play', finishAllPlay, 'main-button'); }
+  else if (game.phase === 'allplay-word') { message.textContent = `All Play פעיל${game.finalAllPlay ? ' — זהו סבב הסיום' : ''}. אין טיימר.`; addButton('סיימו All Play', finishAllPlay, 'main-button'); }
   else if (game.phase === 'allplay-resolve') {
     message.textContent = 'בחרו את הזוג שניחש ראשון ב־All Play.'; const select = document.createElement('select'); select.id = 'allplay-winner'; const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'בחרו זוג שהצליח'; placeholder.disabled = true; placeholder.selected = true; select.append(placeholder); game.teams.filter((item) => item.online).forEach((item) => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; select.append(option); }); controls.append(select); addButton('הכריעו וגלגלו D6', () => { if (!select.value) return toast('בחרו את הזוג שניחש ראשון.'); resolveAllPlay(select.value); }, 'main-button');
   } else if (game.phase === 'rolling') message.textContent = game.lastRoll ? 'הקובייה נקבעה.' : 'מגלגלים…';
-  else if (game.phase === 'gameover') { message.textContent = 'המשחק הסתיים.'; addButton('משחק חדש', resetGame, 'main-button'); }
+  else if (game.phase === 'gameover') message.textContent = 'המשחק הסתיים.';
   else message.textContent = 'הלוח מוכן.';
   area.append(message); if (controls.childElementCount) area.append(controls);
 }
@@ -236,7 +236,7 @@ function renderPair() {
   if (game.phase === 'rolling') { visible(wait, true); title.textContent = 'מגלגלים קובייה…'; setWaitMessage('הסתכלו בלוח המארח.'); }
 }
 function renderWord(isActive, allPlay = false) { visible($('#pair-word'), true); $('#hold-word').textContent = game.word; $('#word-instruction').textContent = 'לחצו והחזיקו כדי לראות את המילה'; $('#word-footnote').textContent = isActive ? (allPlay ? 'אחרי פתיחת לוח הציור הכרטיס לא יחזור עד סיום ה־All Play.' : 'אחרי פתיחת לוח הציור הכרטיס ייעלם לכם עד שהסבב יסתיים.') : 'שחררו כדי להסתיר את המילה שוב.'; $('#open-pair-canvas').textContent = allPlay ? 'פתחו לוח ציור ←' : 'עברו ללוח הציור ←'; visible($('#open-pair-canvas'), isActive || allPlay); setReveal($('#hold-card'), false); }
-function renderDrawer(live, allPlay = false) { visible($('#pair-draw'), true); if (!client.canvasReady) resetPairCanvas(); const begin = $('#begin-drawing'); visible(begin, !live && !allPlay); begin.textContent = 'התחילו לצייר ▶'; visible($('#pair-clock'), live); $('#pair-clock').textContent = String(game.seconds).padStart(2, '0'); $('#draw-state').textContent = allPlay ? 'All Play: ציירו בקצב שלכם. אין טיימר.' : live ? 'הטיימר פועל. ציירו מהזיכרון.' : 'זכרו את המילה. הטיימר יתחיל רק כשתלחצו.'; visible($('#return-to-word'), !live && !allPlay); updateRotateHint(); }
+function renderDrawer(live, allPlay = false) { visible($('#pair-draw'), true); if (!client.canvasReady) resetPairCanvas(); const begin = $('#begin-drawing'); visible(begin, !live && !allPlay); begin.textContent = 'התחילו לצייר ▶'; visible($('#pair-clock'), live && !allPlay); $('#pair-clock').textContent = String(game.seconds).padStart(2, '0'); $('#draw-state').textContent = allPlay ? 'All Play: ציירו בקצב שלכם. אין טיימר.' : live ? 'הטיימר פועל. ציירו מהזיכרון.' : 'זכרו את המילה. הטיימר יתחיל רק כשתלחצו.'; visible($('#return-to-word'), !live && !allPlay); updateRotateHint(); }
 function renderViewer() { visible($('#pair-viewer'), true); $('#viewer-clock').textContent = String(game.seconds).padStart(2, '0'); $('#viewer-word').textContent = 'החזיקו למילה'; setReveal($('#viewer-word-card'), false); redrawViewer(); }
 
 function chooseWord(category) { const pool = WORDS[category]; const unused = pool.filter((word) => !game.usedWords.has(word)); const word = (unused.length ? unused : pool)[Math.floor(Math.random() * (unused.length ? unused.length : pool.length))]; game.usedWords.add(word); game.category = category; game.word = word; }
@@ -394,8 +394,17 @@ function resumePairGame() {
 }
 
 function sendFromPair(message) { send(client.connection, { ...message, teamId: client.teamId }); }
-function openPairCanvas() { client.canvasOpen = true; client.canvasReady = false; lockDrawingLandscape(); renderPair(); if (game.phase === 'allplay-word') sendFromPair({ type: 'allplay-ready' }); }
-function beginPairDrawing() { lockDrawingLandscape(); sendFromPair({ type: 'begin-drawing' }); }
+function sendWithRetry(message, stillRelevant, attempts = 3) {
+  sendFromPair(message);
+  const retry = () => {
+    if (attempts <= 0 || !stillRelevant()) return;
+    attempts -= 1; sendFromPair(message); setTimeout(retry, 400);
+  };
+  setTimeout(retry, 400);
+}
+function requestPairTurn() { sendWithRetry({ type: 'start-turn' }, () => ['awaiting','final-awaiting'].includes(game.phase) && activeTeam()?.id === client.teamId); }
+function openPairCanvas() { client.canvasOpen = true; client.canvasReady = false; lockDrawingLandscape(); renderPair(); if (game.phase === 'allplay-word') sendWithRetry({ type: 'allplay-ready' }, () => game.phase === 'allplay-word'); }
+function beginPairDrawing() { lockDrawingLandscape(); sendWithRetry({ type: 'begin-drawing' }, () => game.phase === 'word' && activeTeam()?.id === client.teamId); }
 function bindCanvas(canvas, callback, allowed) {
   let drawing = false; let previous = {};
   const emit = (kind, event) => { const stroke = { kind, ...canvasPoint(canvas, event) }; drawStroke(canvas, stroke, previous); callback(stroke); };
@@ -415,7 +424,7 @@ function bindEvents() {
   $('#create-room').onclick = createRoom; $('#resume-host').onclick = resumeHostGame; $('#discard-host-save').onclick = () => { clearHostSession(); updateResumeHostPrompt(); toast('המשחק השמור נמחק.'); }; $('#resume-pair').onclick = resumePairGame; $('#join-room').onclick = () => joinRoom(false); $('#room-code').addEventListener('input', (event) => { event.target.value = normalizeCode(event.target.value); });
   $('#retry-connection').onclick = () => { if (game.mode !== 'client') return; client.reconnectAttempts = 0; setJoinStatus('מנסים להתחבר מחדש…'); startClientPeer(); };
   $('#copy-code').onclick = copyRoomCode; $('#copy-code-tools').onclick = copyRoomCode; $('#start-game').onclick = hostStartGame; $('#open-room-tools').onclick = () => { $('#room-tools').hidden = false; }; $('#close-room-tools').onclick = () => { $('#room-tools').hidden = true; }; $('#end-game').onclick = endGame; $('#new-game').onclick = resetGame;
-  $('#pair-start-turn').onclick = () => sendFromPair({ type: 'start-turn' }); $('#open-pair-canvas').onclick = openPairCanvas; $('#begin-drawing').onclick = beginPairDrawing; $('#clear-pair-canvas').onclick = clearPairDrawing; $('#return-to-word').onclick = () => { if (game.phase === 'word') { client.canvasOpen = false; client.canvasReady = false; renderPair(); } };
+  $('#pair-start-turn').onclick = requestPairTurn; $('#open-pair-canvas').onclick = openPairCanvas; $('#begin-drawing').onclick = beginPairDrawing; $('#clear-pair-canvas').onclick = clearPairDrawing; $('#return-to-word').onclick = () => { if (game.phase === 'word') { client.canvasOpen = false; client.canvasReady = false; renderPair(); } };
   const revealEvents = (button, reveal, hide) => { button.addEventListener('pointerdown', () => { setReveal(button, true); reveal?.(); }); ['pointerup','pointerleave','pointercancel'].forEach((type) => button.addEventListener(type, () => { setReveal(button, false); hide?.(); })); }; revealEvents($('#hold-card')); revealEvents($('#viewer-word-card'), () => { $('#viewer-word').textContent = game.word; }, () => { $('#viewer-word').textContent = 'החזיקו למילה'; });
   bindCanvas(pairCanvas, (stroke) => { client.localStrokes.push(stroke); if (game.phase === 'drawing') sendFromPair({ type: 'stroke', stroke }); }, pairCanDraw);
   $$('.category-buttons button').forEach((button) => button.onclick = () => generatorWord(button.dataset.category)); $('#toggle-generator-word').onclick = () => { const word = $('#generator-word'); const hidden = word.dataset.hidden === 'true'; word.dataset.hidden = String(!hidden); word.style.filter = hidden ? '' : 'blur(9px)'; };
