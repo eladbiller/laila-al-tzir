@@ -348,7 +348,8 @@ function attachHostConnection(connection) {
   connection.on('close', () => disconnectHostTeam(connection));
   connection.on('error', () => { toast('חיבור של זוג נותק. הזוג ינסה להתחבר מחדש.'); disconnectHostTeam(connection); });
 }
-function renderQR(target) { const el = $(target); el.replaceChildren(); const url = `${location.origin}${location.pathname}?join=${game.roomCode}`; if (window.QRCode) new QRCode(el, { text: url, width: target === '#qr-code' ? 180 : 190, height: target === '#qr-code' ? 180 : 190, colorDark: '#0f172a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); else el.textContent = url; }
+function joinLink() { const url = new URL(location.href); url.search = ''; url.hash = ''; url.searchParams.set('join', game.roomCode); return url.toString(); }
+function renderQR(target) { const el = $(target); el.replaceChildren(); const url = joinLink(); const size = target === '#qr-code' ? 248 : 210; if (window.QRCode) new QRCode(el, { text: url, width: size, height: size, colorDark: '#0f172a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H }); else el.textContent = url; }
 function createRoom() {
   if (!window.Peer) return toast('שירות החיבור לא נטען. בדקו אינטרנט ונסו שוב.');
   clearTimeout(hostOpenTimer); hostAttempt += 1; game.peer?.destroy?.(); stopHostHeartbeat(); clearHostSession(); game.mode = 'host'; game.teams = []; game.connections = new Map(); game.roomCode = randomCode(); game.phase = 'lobby'; game.word = ''; game.category = ''; game.strokes = []; game.seconds = 60; game.usedWords = new Set(); game.finalTeamId = ''; game.finalAllPlay = false; game.winnerId = ''; hostNetwork.reconnecting = false; hostNetwork.lastError = ''; $('#create-room').disabled = true; setHostStatus('פותחים חדר מאובטח…'); openHostRoom();
@@ -423,7 +424,7 @@ function bindEvents() {
   $$('.back-link').forEach((button) => button.onclick = () => show(button.dataset.go)); $('#fullscreen-button').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
   $('#create-room').onclick = createRoom; $('#resume-host').onclick = resumeHostGame; $('#discard-host-save').onclick = () => { clearHostSession(); updateResumeHostPrompt(); toast('המשחק השמור נמחק.'); }; $('#resume-pair').onclick = resumePairGame; $('#join-room').onclick = () => joinRoom(false); $('#room-code').addEventListener('input', (event) => { event.target.value = normalizeCode(event.target.value); });
   $('#retry-connection').onclick = () => { if (game.mode !== 'client') return; client.reconnectAttempts = 0; setJoinStatus('מנסים להתחבר מחדש…'); startClientPeer(); };
-  $('#copy-code').onclick = copyRoomCode; $('#copy-code-tools').onclick = copyRoomCode; $('#start-game').onclick = hostStartGame; $('#open-room-tools').onclick = () => { $('#room-tools').hidden = false; }; $('#close-room-tools').onclick = () => { $('#room-tools').hidden = true; }; $('#end-game').onclick = endGame; $('#new-game').onclick = resetGame;
+  $('#copy-code').onclick = copyRoomCode; $('#copy-code-tools').onclick = copyRoomCode; $('#copy-join-link').onclick = copyJoinLink; $('#copy-join-link-tools').onclick = copyJoinLink; $('#start-game').onclick = hostStartGame; $('#open-room-tools').onclick = () => { $('#room-tools').hidden = false; }; $('#close-room-tools').onclick = () => { $('#room-tools').hidden = true; }; $('#end-game').onclick = endGame; $('#new-game').onclick = resetGame;
   $('#pair-start-turn').onclick = requestPairTurn; $('#open-pair-canvas').onclick = openPairCanvas; $('#begin-drawing').onclick = beginPairDrawing; $('#clear-pair-canvas').onclick = clearPairDrawing; $('#return-to-word').onclick = () => { if (game.phase === 'word') { client.canvasOpen = false; client.canvasReady = false; renderPair(); } };
   const revealEvents = (button, reveal, hide) => { button.addEventListener('pointerdown', () => { setReveal(button, true); reveal?.(); }); ['pointerup','pointerleave','pointercancel'].forEach((type) => button.addEventListener(type, () => { setReveal(button, false); hide?.(); })); }; revealEvents($('#hold-card')); revealEvents($('#viewer-word-card'), () => { $('#viewer-word').textContent = game.word; }, () => { $('#viewer-word').textContent = 'החזיקו למילה'; });
   bindCanvas(pairCanvas, (stroke) => { client.localStrokes.push(stroke); if (game.phase === 'drawing') sendFromPair({ type: 'stroke', stroke }); }, pairCanDraw);
@@ -433,6 +434,7 @@ function bindEvents() {
   window.addEventListener('pagehide', () => saveHostSession());
 }
 function copyRoomCode() { navigator.clipboard?.writeText(game.roomCode).then(() => toast('קוד החדר הועתק.')).catch(() => toast(`קוד החדר: ${game.roomCode}`)); }
+function copyJoinLink() { const url = joinLink(); navigator.clipboard?.writeText(url).then(() => toast('קישור ההצטרפות הועתק.')).catch(() => toast(url)); }
 function autoReconnectFromLink() {
   const linkedCode = normalizeCode(new URLSearchParams(location.search).get('join'));
   if (linkedCode) openJoinSetup(linkedCode);

@@ -43,7 +43,7 @@
     </section>
 
     <section class="view" id="host-lobby-view">
-      <div class="lobby-layout"><div class="lobby-main"><span class="eyebrow">החדר פתוח</span><h2>מחכים לזוגות.</h2><p>סרקו את ה־QR או הזינו את קוד החדר. כשיש לפחות שני זוגות אפשר להתחיל.</p><div class="room-code-card"><span>קוד החדר</span><strong id="room-code-display">------</strong><button class="copy-button" id="copy-code" type="button">העתק קוד</button></div><button class="main-button" id="start-game" type="button" disabled>התחילו משחק <span>✦</span></button></div><aside class="join-card"><div class="qr-frame" id="qr-code" aria-label="QR להצטרפות"></div><strong>סרקו והצטרפו</strong><span>טלפון אחד לכל זוג</span></aside></div><div class="team-list" id="lobby-teams"></div>
+      <div class="lobby-layout"><div class="lobby-main"><span class="eyebrow">החדר פתוח</span><h2>מחכים לזוגות.</h2><p>סרקו את ה־QR או הזינו את קוד החדר. כשיש לפחות שני זוגות אפשר להתחיל.</p><div class="room-code-card"><span>קוד החדר</span><strong id="room-code-display">------</strong><button class="copy-button" id="copy-code" type="button">העתק קוד</button></div><button class="main-button" id="start-game" type="button" disabled>התחילו משחק <span>✦</span></button></div><aside class="join-card"><div class="qr-frame" id="qr-code" aria-label="QR להצטרפות"></div><strong>סרקו והצטרפו</strong><span>טלפון אחד לכל זוג</span><button class="copy-button invite-link-button" id="copy-join-link" type="button">העתק קישור להצטרפות</button></aside></div><div class="team-list" id="lobby-teams"></div>
     </section>
 
     <section class="view" id="board-view">
@@ -52,7 +52,7 @@
       <div class="board-teams" id="board-teams"></div>
       <section class="context-sheet" id="board-actions" aria-live="polite"></section>
       <section class="connection-notice" id="connection-notice" hidden></section>
-      <section class="overlay-sheet" id="room-tools" hidden><button class="sheet-close" id="close-room-tools" type="button">×</button><span class="eyebrow">ניהול חדר</span><h3>הצטרפות וחיבור</h3><div class="tools-code"><strong id="tools-code">------</strong><button class="copy-button" id="copy-code-tools" type="button">העתק</button></div><div class="tools-qr" id="tools-qr"></div><div id="tools-teams"></div><div class="room-tools-actions"><button class="danger-button" id="end-game" type="button">סיימו את המשחק</button></div></section>
+      <section class="overlay-sheet" id="room-tools" hidden><button class="sheet-close" id="close-room-tools" type="button">×</button><span class="eyebrow">ניהול חדר</span><h3>הצטרפות וחיבור</h3><div class="tools-code"><strong id="tools-code">------</strong><button class="copy-button" id="copy-code-tools" type="button">העתק</button></div><div class="tools-qr" id="tools-qr"></div><button class="copy-button invite-link-button" id="copy-join-link-tools" type="button">העתק קישור להצטרפות</button><div id="tools-teams"></div><div class="room-tools-actions"><button class="danger-button" id="end-game" type="button">סיימו את המשחק</button></div></section>
       <section class="overlay-sheet winner-sheet" id="winner-sheet" hidden><span>🏆</span><h2 id="winner-title">ניצחתם!</h2><p>הגעתם לסיום והצלחתם ב־All Play.</p><button class="main-button" id="new-game" type="button">משחק חדש</button></section>
     </section>
 
@@ -70,6 +70,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=20260825-2"></script>
+  <script src="app.js?v=20260825-3"></script>
 </body>
 </html>
