@@ -20,13 +20,15 @@ const WORDS = {
 const TEAM_COLORS = ['#38bdf8','#f472b6','#fbbf24','#34d399','#a78bfa','#fb923c','#fb7185','#22d3ee'];
 const PEER_OPTIONS = {
   host: '0.peerjs.com', port: 443, path: '/', secure: true, pingInterval: 4000,
-  config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }], sdpSemantics: 'unified-plan' }
+  config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }], sdpSemantics: 'unified-plan' }
 };
 const CONNECTION_TIMEOUT = 10000;
 const HOST_ID_RETRIES = 4;
 const DIE_REVEAL_DURATION = 3000;
-const HEARTBEAT_INTERVAL = 5000;
-const HEARTBEAT_TIMEOUT = 16000;
+const HEARTBEAT_INTERVAL = 2000;
+const HEARTBEAT_TIMEOUT = 10000;
+const RECONNECT_DELAYS_MS = [250, 500, 1000, 2000, 4000, 8000];
+const MAX_AUTO_RECONNECT_ATTEMPTS = RECONNECT_DELAYS_MS.length;
 const PUBLIC_APP_URL = 'https://eladbiller.github.io/laila-al-tzir/';
 const PATH = [
   [9,12,'yellow','START'],[20.5,12,'blue'],[32,12,'orange'],[43.5,12,'green'],[55,12,'red'],[66.5,12,'yellow'],[78,12,'blue'],[89.5,12,'orange'],
@@ -39,10 +41,10 @@ const FINISH = PATH.length - 1;
 
 const game = {
   mode: null, peer: null, roomCode: '', connections: new Map(), teams: [], turnIndex: 0, phase: 'lobby',
-  category: '', word: '', seconds: 60, timer: null, strokes: [], usedWords: new Set(), finalTeamId: '',
+  category: '', word: '', seconds: 60, timer: null, strokes: [], canvasRevision: 0, usedWords: new Set(), finalTeamId: '',
   finalAllPlay: false, allPlayReady: {}, lastRoll: null, winnerId: '', heartbeat: null
 };
-const client = { teamId: '', reconnectKey: '', pairName: '', connection: null, reconnectTimer: null, connectionTimer: null, peerTimer: null, reconnectAttempts: 0, attempt: 0, canvasOpen: false, canvasReady: false, localStrokes: [], lastWord: '', lastPhase: '', connected: false, note: '', ended: false, resuming: false };
+const client = { teamId: '', reconnectKey: '', pairName: '', connection: null, reconnectTimer: null, connectionTimer: null, peerTimer: null, watchdog: null, reconnectAttempts: 0, attempt: 0, lastHostContact: 0, canvasOpen: false, canvasReady: false, localStrokes: [], viewerPrevious: {}, pendingStroke: null, strokeTimer: null, lastWord: '', lastPhase: '', connected: false, note: '', ended: false, resuming: false };
 const hostNetwork = { reconnecting: false, lastError: '' };
 let toastTimer;
 let hostOpenTimer;
@@ -70,12 +72,12 @@ function saveDevice() { localStorage.setItem(storageName(), JSON.stringify({ roo
 function clearSavedDevice() { localStorage.removeItem(storageName()); }
 function normalizedName(value) { return cleanName(value).toLocaleLowerCase('he-IL'); }
 function hostSessionSnapshot() {
-  return { version: 1, savedAt: Date.now(), roomCode: game.roomCode, teams: game.teams.map((team) => ({ id: team.id, reconnectKey: team.reconnectKey, name: team.name, position: team.position, color: team.color })), turnIndex: game.turnIndex, phase: game.phase, category: game.category, word: game.word, seconds: game.seconds, strokes: game.strokes, usedWords: [...game.usedWords], finalTeamId: game.finalTeamId, finalAllPlay: game.finalAllPlay, allPlayReady: game.allPlayReady, lastRoll: game.lastRoll, winnerId: game.winnerId };
+  return { version: 1, savedAt: Date.now(), roomCode: game.roomCode, teams: game.teams.map((team) => ({ id: team.id, reconnectKey: team.reconnectKey, name: team.name, position: team.position, color: team.color })), turnIndex: game.turnIndex, phase: game.phase, category: game.category, word: game.word, seconds: game.seconds, strokes: game.strokes, canvasRevision: game.canvasRevision, usedWords: [...game.usedWords], finalTeamId: game.finalTeamId, finalAllPlay: game.finalAllPlay, allPlayReady: game.allPlayReady, lastRoll: game.lastRoll, winnerId: game.winnerId };
 }
 function saveHostSession() { if (game.mode === 'host' && game.roomCode && !['lobby-ended','ended'].includes(game.phase)) localStorage.setItem(hostStorageName(), JSON.stringify(hostSessionSnapshot())); }
 function readHostSession() { try { const session = JSON.parse(localStorage.getItem(hostStorageName()) || 'null'); return session?.version === 1 && normalizeCode(session.roomCode) ? session : null; } catch { return null; } }
 function clearHostSession() { localStorage.removeItem(hostStorageName()); }
-function clearClientTimers() { clearTimeout(client.reconnectTimer); clearTimeout(client.connectionTimer); clearTimeout(client.peerTimer); client.reconnectTimer = null; client.connectionTimer = null; client.peerTimer = null; }
+function clearClientTimers() { clearTimeout(client.reconnectTimer); clearTimeout(client.connectionTimer); clearTimeout(client.peerTimer); clearTimeout(client.strokeTimer); clearInterval(client.watchdog); client.reconnectTimer = null; client.connectionTimer = null; client.peerTimer = null; client.strokeTimer = null; client.watchdog = null; client.pendingStroke = null; }
 function peerErrorMessage(error, timeout = false) {
   const type = timeout ? 'timeout' : (error?.type || 'unknown');
   const messages = {
@@ -98,18 +100,19 @@ function categoryStyle(element, category) { element.style.setProperty('--categor
 function setReveal(element, shown) { element.classList.toggle('is-revealed', shown); }
 
 function snapshot() {
-  return { roomCode: game.roomCode, teams: game.teams.map((team) => ({ id: team.id, name: team.name, position: team.position, online: team.online, color: team.color })), turnIndex: game.turnIndex, phase: game.phase, category: game.category, word: game.word, seconds: game.seconds, strokes: game.strokes, finalTeamId: game.finalTeamId, finalAllPlay: game.finalAllPlay, allPlayReady: game.allPlayReady, lastRoll: game.lastRoll, winnerId: game.winnerId };
+  return { roomCode: game.roomCode, teams: game.teams.map((team) => ({ id: team.id, name: team.name, position: team.position, online: team.online, color: team.color })), turnIndex: game.turnIndex, phase: game.phase, category: game.category, word: game.word, seconds: game.seconds, strokes: game.strokes, canvasRevision: game.canvasRevision, finalTeamId: game.finalTeamId, finalAllPlay: game.finalAllPlay, allPlayReady: game.allPlayReady, lastRoll: game.lastRoll, winnerId: game.winnerId };
 }
 function send(connection, message) { if (connection?.open) connection.send(message); }
 function broadcast(message, exclude = '') { game.connections.forEach((connection, id) => { if (id !== exclude) send(connection, message); }); }
 function broadcastState() { if (game.mode === 'host') { saveHostSession(); broadcast({ type: 'state', state: snapshot() }); } }
 function applySnapshot(state) {
-  game.roomCode = state.roomCode || game.roomCode; game.teams = state.teams || []; game.turnIndex = state.turnIndex || 0; game.phase = state.phase || 'lobby'; game.category = state.category || ''; game.word = state.word || ''; game.seconds = Number.isFinite(state.seconds) ? state.seconds : 60; game.strokes = state.strokes || []; game.finalTeamId = state.finalTeamId || ''; game.finalAllPlay = Boolean(state.finalAllPlay); game.allPlayReady = state.allPlayReady || {}; game.lastRoll = state.lastRoll || null; game.winnerId = state.winnerId || '';
+  const incomingRevision = Number(state.canvasRevision) || 0; const canReplaceCanvas = incomingRevision >= game.canvasRevision;
+  game.roomCode = state.roomCode || game.roomCode; game.teams = state.teams || []; game.turnIndex = state.turnIndex || 0; game.phase = state.phase || 'lobby'; game.category = state.category || ''; game.word = state.word || ''; game.seconds = Number.isFinite(state.seconds) ? state.seconds : 60; if (canReplaceCanvas) { game.strokes = state.strokes || []; game.canvasRevision = incomingRevision; } game.finalTeamId = state.finalTeamId || ''; game.finalAllPlay = Boolean(state.finalAllPlay); game.allPlayReady = state.allPlayReady || {}; game.lastRoll = state.lastRoll || null; game.winnerId = state.winnerId || '';
 }
 function restoreHostSession(session) {
   clearInterval(game.timer); game.timer = null; game.mode = 'host'; game.roomCode = normalizeCode(session.roomCode); game.connections = new Map();
   game.teams = (session.teams || []).map((team, index) => ({ id: team.id, reconnectKey: team.reconnectKey, name: cleanName(team.name, 'זוג'), position: Math.max(0, Math.min(FINISH, Number(team.position) || 0)), color: team.color || teamColor(index), online: false, lastSeen: 0 }));
-  game.turnIndex = Math.max(0, Math.min(Math.max(0, game.teams.length - 1), Number(session.turnIndex) || 0)); game.phase = session.phase || 'awaiting'; game.category = session.category || ''; game.word = session.word || ''; game.seconds = Math.max(0, Number(session.seconds) || 0); game.strokes = session.strokes || []; game.usedWords = new Set(session.usedWords || []); game.finalTeamId = session.finalTeamId || ''; game.finalAllPlay = Boolean(session.finalAllPlay); game.allPlayReady = session.allPlayReady || {}; game.lastRoll = session.lastRoll || null; game.winnerId = session.winnerId || '';
+  game.turnIndex = Math.max(0, Math.min(Math.max(0, game.teams.length - 1), Number(session.turnIndex) || 0)); game.phase = session.phase || 'awaiting'; game.category = session.category || ''; game.word = session.word || ''; game.seconds = Math.max(0, Number(session.seconds) || 0); game.strokes = session.strokes || []; game.canvasRevision = Number(session.canvasRevision) || 0; game.usedWords = new Set(session.usedWords || []); game.finalTeamId = session.finalTeamId || ''; game.finalAllPlay = Boolean(session.finalAllPlay); game.allPlayReady = session.allPlayReady || {}; game.lastRoll = session.lastRoll || null; game.winnerId = session.winnerId || '';
   if (game.phase === 'drawing') { game.seconds = Math.max(0, game.seconds - Math.floor((Date.now() - Number(session.savedAt || Date.now())) / 1000)); if (game.seconds === 0) game.phase = 'normal-resolve'; }
 }
 function updateResumeHostPrompt() {
@@ -137,9 +140,10 @@ function clearCanvas(canvas) { prepareCanvas(canvas); }
 function canvasPoint(canvas, event) { const b = canvas.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (event.clientX - b.left) / b.width)), y: Math.max(0, Math.min(1, (event.clientY - b.top) / b.height)) }; }
 function drawStroke(canvas, stroke, previous) {
   const ctx = canvas.getContext('2d'); const b = canvas.getBoundingClientRect(); const point = { x: stroke.x * b.width, y: stroke.y * b.height }; ctx.strokeStyle = '#172554'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath(); if (stroke.kind === 'start' || !previous.point) { ctx.moveTo(point.x, point.y); ctx.lineTo(point.x + .01, point.y + .01); } else { ctx.moveTo(previous.point.x, previous.point.y); ctx.lineTo(point.x, point.y); } ctx.stroke(); previous.point = stroke.kind === 'end' ? null : point;
+  if (stroke.kind === 'start' || !previous.point) { ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(point.x, point.y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill(); } else { ctx.beginPath(); ctx.moveTo(previous.point.x, previous.point.y); ctx.lineTo(point.x, point.y); ctx.stroke(); } previous.point = stroke.kind === 'end' ? null : point;
 }
-function redrawViewer() { if (!sharedCanvas.offsetParent) return; prepareCanvas(sharedCanvas); const points = {}; game.strokes.forEach((stroke) => { points[stroke.teamId] ||= {}; drawStroke(sharedCanvas, stroke, points[stroke.teamId]); }); }
+function redrawViewer() { if (!sharedCanvas.offsetParent) return; prepareCanvas(sharedCanvas); client.viewerPrevious = {}; game.strokes.forEach((stroke) => { client.viewerPrevious[stroke.teamId] ||= {}; drawStroke(sharedCanvas, stroke, client.viewerPrevious[stroke.teamId]); }); }
+function drawViewerStroke(stroke) { if (!sharedCanvas.offsetParent) return; client.viewerPrevious[stroke.teamId] ||= {}; drawStroke(sharedCanvas, stroke, client.viewerPrevious[stroke.teamId]); }
 function resetPairCanvas() { prepareCanvas(pairCanvas); client.canvasReady = true; client.localStrokes = []; }
 
 function renderBoard() {
@@ -241,7 +245,7 @@ function renderDrawer(live, allPlay = false) { visible($('#pair-draw'), true); i
 function renderViewer() { visible($('#pair-viewer'), true); $('#viewer-clock').textContent = String(game.seconds).padStart(2, '0'); $('#viewer-word').textContent = 'החזיקו למילה'; setReveal($('#viewer-word-card'), false); redrawViewer(); }
 
 function chooseWord(category) { const pool = WORDS[category]; const unused = pool.filter((word) => !game.usedWords.has(word)); const word = (unused.length ? unused : pool)[Math.floor(Math.random() * (unused.length ? unused.length : pool.length))]; game.usedWords.add(word); game.category = category; game.word = word; }
-function clearRoundData() { game.word = ''; game.category = ''; game.strokes = []; game.seconds = 60; game.allPlayReady = {}; game.lastRoll = null; }
+function clearRoundData() { game.word = ''; game.category = ''; game.strokes = []; game.canvasRevision += 1; game.seconds = 60; game.allPlayReady = {}; game.lastRoll = null; }
 function hostStartGame() { if (game.teams.length < 2) return toast('צריך לפחות שני זוגות.'); game.turnIndex = 0; game.finalTeamId = ''; game.finalAllPlay = false; game.winnerId = ''; game.usedWords = new Set(); clearRoundData(); game.phase = 'awaiting'; broadcastState(); renderHost(); }
 function beginTurn(teamId) {
   const team = activeTeam(); if (team?.id !== teamId || !['awaiting','final-awaiting'].includes(game.phase)) return;
@@ -329,8 +333,16 @@ function hostReceive(connection, message) {
     if (!team) { if (game.teams.length >= 8) { send(connection, { type: 'rejected', message: 'החדר מלא.' }); return; } team = { id: message.teamId, reconnectKey: message.reconnectKey, name: requestedName, position: 0, online: true, color: teamColor(game.teams.length), lastSeen: Date.now() }; game.teams.push(team); toast(`${team.name} הצטרפו.`); }
     else {
       const previous = game.connections.get(team.id);
-      if (previous && previous !== connection && previous.open && team.online) { send(connection, { type: 'rejected', message: 'הזוג הזה כבר מחובר מטלפון אחר. חזרו אליו או הצטרפו כזוג חדש.' }); return; }
-      if (previous && previous !== connection) { try { previous.close(); } catch {} }
+      // The reconnect key is the device identity. A second connection with that
+      // key is a legitimate reconnect, even when PeerJS has not yet reported the
+      // old socket as closed (a common mobile-network transition).
+      if (previous && previous !== connection) {
+        // Let the old phone receive this ordered control message before closing
+        // its socket. Otherwise it can race the new phone and immediately
+        // reconnect with the same saved identity.
+        send(previous, { type: 'connection-replaced' });
+        setTimeout(() => { if (game.connections.get(team.id) === connection) { try { previous.close(); } catch {} } }, 160);
+      }
       team.online = true; team.lastSeen = Date.now(); team.name = requestedName; toast(`${team.name} התחברו מחדש.`);
     }
     game.connections.set(team.id, connection); send(connection, { type: 'accepted', teamId: team.id }); send(connection, { type: 'state', state: snapshot() }); saveHostSession(); renderLobby(); if (game.phase !== 'lobby') { broadcastState(); renderHost(); } return;
@@ -340,8 +352,8 @@ function hostReceive(connection, message) {
   const isSender = activeTeam()?.id === message.teamId;
   if (message.type === 'start-turn' && isSender) beginTurn(message.teamId);
   if (message.type === 'begin-drawing' && isSender) beginDrawing(message.teamId);
-  if (message.type === 'stroke' && isSender && game.phase === 'drawing') { const stroke = { ...message.stroke, teamId: message.teamId }; game.strokes.push(stroke); broadcast({ type: 'stroke', stroke }, message.teamId); }
-  if (message.type === 'clear-drawing' && isSender && game.phase === 'drawing') { game.strokes = []; broadcast({ type: 'clear-viewer' }, message.teamId); }
+  if (message.type === 'stroke' && isSender && game.phase === 'drawing') { const stroke = { ...message.stroke, teamId: message.teamId, revision: game.canvasRevision }; game.strokes.push(stroke); broadcast({ type: 'stroke', stroke }, message.teamId); }
+  if (message.type === 'clear-drawing' && isSender && game.phase === 'drawing') { game.strokes = []; game.canvasRevision += 1; broadcast({ type: 'clear-viewer', revision: game.canvasRevision }, message.teamId); broadcastState(); }
   if (message.type === 'allplay-ready' && game.phase === 'allplay-word') { game.allPlayReady[message.teamId] = true; broadcastState(); renderHost(); }
 }
 function attachHostConnection(connection) {
@@ -360,29 +372,55 @@ function connectClient() {
   if (!game.peer?.open) return; clearTimeout(client.connectionTimer); const attempt = ++client.attempt; const connection = game.peer.connect(`pictionary-${game.roomCode.toLowerCase()}`, { reliable: true, serialization: 'json' }); client.connection = connection;
   const failed = (error, timeout = false) => {
     if (attempt !== client.attempt || client.connection !== connection) return;
-    clearTimeout(client.connectionTimer); client.connection = null; try { connection.close(); } catch {} client.connected = false; if (client.ended) return; setJoinStatus(peerErrorMessage(error, timeout), true); $('#join-room').disabled = false; if ($('#pair-view').classList.contains('is-active')) renderPair(); scheduleReconnect();
+    clearTimeout(client.connectionTimer); client.connection = null; clearInterval(client.watchdog); client.watchdog = null; try { connection.close(); } catch {} client.connected = false; if (client.ended) return; setJoinStatus(peerErrorMessage(error, timeout), true); $('#join-room').disabled = false; if ($('#pair-view').classList.contains('is-active')) renderPair(); scheduleReconnect();
   };
   client.connectionTimer = setTimeout(() => failed(null, true), CONNECTION_TIMEOUT);
-  connection.on('open', () => { if (attempt !== client.attempt || client.connection !== connection) return; clearTimeout(client.connectionTimer); client.connected = true; client.reconnectAttempts = 0; setJoinStatus('החיבור נפתח. מצטרפים לחדר…'); send(connection, { type: 'join', teamId: client.teamId, reconnectKey: client.reconnectKey, name: client.pairName, resume: client.resuming }); renderPair(); });
+  connection.on('open', () => { if (attempt !== client.attempt || client.connection !== connection) return; clearTimeout(client.connectionTimer); client.connected = true; client.reconnectAttempts = 0; client.lastHostContact = Date.now(); startClientWatchdog(); setJoinStatus('החיבור נפתח. מצטרפים לחדר…'); send(connection, { type: 'join', teamId: client.teamId, reconnectKey: client.reconnectKey, name: client.pairName, resume: client.resuming }); renderPair(); });
   connection.on('data', clientReceive); connection.on('close', () => failed({ type: 'socket-closed' })); connection.on('error', (error) => failed(error));
 }
-function scheduleReconnect() { clearTimeout(client.reconnectTimer); if (game.mode !== 'client' || client.ended) return; const delay = Math.min(8000, 1000 * (2 ** Math.min(client.reconnectAttempts, 3))); client.reconnectAttempts += 1; client.reconnectTimer = setTimeout(() => { if (game.peer?.open && !game.peer.destroyed) connectClient(); else startClientPeer(); }, delay); }
+function startClientWatchdog() {
+  clearInterval(client.watchdog);
+  client.watchdog = setInterval(() => {
+    if (game.mode !== 'client' || client.ended) return;
+    if (client.connection?.open) sendFromPair({ type: 'heartbeat-ack' });
+    if (Date.now() - client.lastHostContact <= HEARTBEAT_TIMEOUT) return;
+    clearInterval(client.watchdog); client.watchdog = null; client.connected = false;
+    setJoinStatus('הקשר עם הלוח אבד. מנסים להתחבר מחדש…', true);
+    if ($('#pair-view').classList.contains('is-active')) renderPair();
+    scheduleReconnect();
+  }, HEARTBEAT_INTERVAL);
+}
+function scheduleReconnect() {
+  if (client.reconnectTimer || game.mode !== 'client' || client.ended) return;
+  if (client.reconnectAttempts >= MAX_AUTO_RECONNECT_ATTEMPTS) {
+    client.connected = false; $('#join-room').disabled = false;
+    setJoinStatus('לא הצלחנו להתחבר מחדש. בדקו אינטרנט ולחצו על נסו שוב.', true);
+    if ($('#pair-view').classList.contains('is-active')) renderPair();
+    return;
+  }
+  const delay = RECONNECT_DELAYS_MS[client.reconnectAttempts] || RECONNECT_DELAYS_MS.at(-1);
+  client.reconnectAttempts += 1;
+  setJoinStatus(`מנסים להתחבר מחדש… (${client.reconnectAttempts}/${MAX_AUTO_RECONNECT_ATTEMPTS})`, true);
+  client.reconnectTimer = setTimeout(() => { client.reconnectTimer = null; startClientPeer(); }, delay);
+}
 function startClientPeer() {
   if (!window.Peer || client.ended) return; clearTimeout(client.peerTimer); game.peer?.destroy?.(); const peer = new Peer(PEER_OPTIONS); game.peer = peer; let opened = false;
-  client.peerTimer = setTimeout(() => { if (!opened && game.peer === peer) { peer.destroy(); client.connected = false; setJoinStatus(peerErrorMessage(null, true), true); $('#join-room').disabled = false; } }, CONNECTION_TIMEOUT);
+  client.peerTimer = setTimeout(() => { if (!opened && game.peer === peer) { peer.destroy(); client.connected = false; setJoinStatus(peerErrorMessage(null, true), true); $('#join-room').disabled = false; scheduleReconnect(); } }, CONNECTION_TIMEOUT);
   peer.on('open', () => { if (game.peer !== peer) return; opened = true; clearTimeout(client.peerTimer); connectClient(); });
-  peer.on('disconnected', () => { if (game.peer !== peer || client.ended) return; client.connected = false; setJoinStatus('שירות החדרים נותק. מנסים להתחבר מחדש…', true); if ($('#pair-view').classList.contains('is-active')) renderPair(); try { peer.reconnect(); } catch { scheduleReconnect(); } });
-  peer.on('error', (error) => { if (game.peer !== peer || client.ended) return; clearTimeout(client.peerTimer); client.connected = false; setJoinStatus(peerErrorMessage(error), true); $('#join-room').disabled = false; if ($('#pair-view').classList.contains('is-active')) renderPair(); scheduleReconnect(); });
+  peer.on('disconnected', () => { if (game.peer !== peer || client.ended) return; client.connected = false; setJoinStatus('שירות החדרים נותק. מנסים להתחבר מחדש…', true); if ($('#pair-view').classList.contains('is-active')) renderPair(); try { peer.destroy(); } catch {} scheduleReconnect(); });
+  peer.on('error', (error) => { if (game.peer !== peer || client.ended) return; clearTimeout(client.peerTimer); client.connected = false; setJoinStatus(peerErrorMessage(error), true); $('#join-room').disabled = false; if ($('#pair-view').classList.contains('is-active')) renderPair(); try { peer.destroy(); } catch {} scheduleReconnect(); });
 }
 function clientReceive(message) {
   if (!message?.type) return;
+  client.lastHostContact = Date.now();
   if (message.type === 'accepted') { client.teamId = message.teamId; client.resuming = true; client.note = ''; $('#join-room').disabled = false; saveDevice(); return; }
   if (message.type === 'rejected') { client.ended = true; clearClientTimers(); setJoinStatus(message.message, true); game.peer?.destroy?.(); game.mode = null; client.connected = false; $('#join-room').disabled = false; show('join-setup-view'); return; }
+  if (message.type === 'connection-replaced') { client.ended = true; clearClientTimers(); client.connection = null; client.connected = false; client.note = 'החיבור הוחלף על ידי חזרה אחרת של אותו טלפון.'; if ($('#pair-view').classList.contains('is-active')) renderPair(); return; }
   if (message.type === 'heartbeat') { send(client.connection, { type: 'heartbeat-ack', teamId: client.teamId }); return; }
   if (message.type === 'game-ended') { client.ended = true; clearClientTimers(); clearSavedDevice(); client.connected = false; game.phase = 'ended'; show('pair-view'); renderPair(); return; }
   if (message.type === 'state') { const beforeWord = game.word; applySnapshot(message.state); if (beforeWord !== game.word) client.canvasReady = false; renderPair(); return; }
-  if (message.type === 'stroke') { game.strokes.push(message.stroke); if ($('#pair-viewer').offsetParent) redrawViewer(); }
-  if (message.type === 'clear-viewer') { game.strokes = []; if ($('#pair-viewer').offsetParent) redrawViewer(); }
+  if (message.type === 'stroke') { if ((Number(message.stroke?.revision) || 0) !== game.canvasRevision) return; game.strokes.push(message.stroke); if ($('#pair-viewer').offsetParent) drawViewerStroke(message.stroke); }
+  if (message.type === 'clear-viewer') { const revision = Number(message.revision) || 0; if (revision < game.canvasRevision) return; game.canvasRevision = revision; game.strokes = []; client.viewerPrevious = {}; if ($('#pair-viewer').offsetParent) prepareCanvas(sharedCanvas); }
 }
 function joinRoom(resume = false) {
   if (!window.Peer) return toast('שירות החיבור לא נטען.'); const code = normalizeCode($('#room-code').value); const name = cleanName($('#pair-name').value); if (!code || !name) { if (!resume) toast('כתבו שם זוג וקוד חדר.'); return; }
@@ -405,17 +443,27 @@ function sendWithRetry(message, stillRelevant, attempts = 3) {
   setTimeout(retry, 400);
 }
 function requestPairTurn() { sendWithRetry({ type: 'start-turn' }, () => ['awaiting','final-awaiting'].includes(game.phase) && activeTeam()?.id === client.teamId); }
-function openPairCanvas() { client.canvasOpen = true; client.canvasReady = false; lockDrawingLandscape(); renderPair(); if (game.phase === 'allplay-word') sendWithRetry({ type: 'allplay-ready' }, () => game.phase === 'allplay-word'); }
-function beginPairDrawing() { lockDrawingLandscape(); sendWithRetry({ type: 'begin-drawing' }, () => game.phase === 'word' && activeTeam()?.id === client.teamId); }
+async function openPairCanvas() { client.canvasOpen = true; client.canvasReady = false; renderPair(); await lockDrawingLandscape(); reflowPairCanvas(); if (game.phase === 'allplay-word') sendWithRetry({ type: 'allplay-ready' }, () => game.phase === 'allplay-word'); }
+async function beginPairDrawing() { await lockDrawingLandscape(); sendWithRetry({ type: 'begin-drawing' }, () => game.phase === 'word' && activeTeam()?.id === client.teamId); }
 function bindCanvas(canvas, callback, allowed) {
   let drawing = false; let previous = {};
   const emit = (kind, event) => { const stroke = { kind, ...canvasPoint(canvas, event) }; drawStroke(canvas, stroke, previous); callback(stroke); };
-  canvas.addEventListener('pointerdown', (event) => { if (!allowed()) return; drawing = true; try { canvas.setPointerCapture(event.pointerId); } catch {} emit('start', event); });
-  canvas.addEventListener('pointermove', (event) => { if (drawing && allowed()) emit('move', event); });
-  canvas.addEventListener('pointerup', (event) => { if (!drawing) return; emit('end', event); drawing = false; previous = {}; }); canvas.addEventListener('pointercancel', () => { drawing = false; previous = {}; });
+  canvas.addEventListener('pointerdown', (event) => { if (!allowed()) return; event.preventDefault(); drawing = true; try { canvas.setPointerCapture(event.pointerId); } catch {} emit('start', event); });
+  canvas.addEventListener('pointermove', (event) => { if (!drawing || !allowed()) return; event.preventDefault(); const samples = event.getCoalescedEvents?.() || [event]; samples.forEach((sample) => emit('move', sample)); });
+  canvas.addEventListener('pointerup', (event) => { if (!drawing) return; event.preventDefault(); emit('end', event); drawing = false; previous = {}; try { canvas.releasePointerCapture(event.pointerId); } catch {} });
+  canvas.addEventListener('pointercancel', (event) => { if (drawing) emit('end', event); drawing = false; previous = {}; });
 }
 function pairCanDraw() { return client.canvasOpen && ((game.phase === 'drawing' && activeTeam()?.id === client.teamId) || game.phase === 'allplay-word'); }
-function clearPairDrawing() { resetPairCanvas(); if (game.phase === 'drawing') sendFromPair({ type: 'clear-drawing' }); }
+function reflowPairCanvas() { if (!client.canvasOpen || !client.canvasReady) return; const history = client.localStrokes; prepareCanvas(pairCanvas); const previous = {}; history.forEach((stroke) => drawStroke(pairCanvas, stroke, previous)); }
+function queuePairStroke(stroke) {
+  client.localStrokes.push(stroke);
+  if (game.phase !== 'drawing') return;
+  const flush = () => { const pending = client.pendingStroke; client.pendingStroke = null; client.strokeTimer = null; if (pending && game.phase === 'drawing') sendFromPair({ type: 'stroke', stroke: pending }); };
+  if (stroke.kind === 'move') { client.pendingStroke = stroke; if (!client.strokeTimer) client.strokeTimer = setTimeout(flush, 33); return; }
+  if (client.pendingStroke) { clearTimeout(client.strokeTimer); flush(); }
+  sendFromPair({ type: 'stroke', stroke });
+}
+function clearPairDrawing() { clearTimeout(client.strokeTimer); client.strokeTimer = null; client.pendingStroke = null; resetPairCanvas(); if (game.phase === 'drawing') sendFromPair({ type: 'clear-drawing' }); }
 
 function generatorWord(category) { const pool = WORDS[category]; const word = pool[Math.floor(Math.random() * pool.length)]; $('#generator-card').hidden = false; $('#generator-category').textContent = CATEGORY[category].name; $('#generator-category').style.color = CATEGORY[category].color; $('#generator-word').textContent = word; $('#generator-word').dataset.hidden = 'false'; }
 function bindFreeCanvas(canvas) { let prev = {}; bindCanvas(canvas, () => {}, () => true); prepareCanvas(canvas); }
@@ -428,10 +476,10 @@ function bindEvents() {
   $('#copy-code').onclick = copyRoomCode; $('#copy-code-tools').onclick = copyRoomCode; $('#copy-join-link').onclick = copyJoinLink; $('#copy-join-link-tools').onclick = copyJoinLink; $('#start-game').onclick = hostStartGame; $('#open-room-tools').onclick = () => { $('#room-tools').hidden = false; }; $('#close-room-tools').onclick = () => { $('#room-tools').hidden = true; }; $('#end-game').onclick = endGame; $('#new-game').onclick = resetGame;
   $('#pair-start-turn').onclick = requestPairTurn; $('#open-pair-canvas').onclick = openPairCanvas; $('#begin-drawing').onclick = beginPairDrawing; $('#clear-pair-canvas').onclick = clearPairDrawing; $('#return-to-word').onclick = () => { if (game.phase === 'word') { client.canvasOpen = false; client.canvasReady = false; renderPair(); } };
   const revealEvents = (button, reveal, hide) => { button.addEventListener('pointerdown', () => { setReveal(button, true); reveal?.(); }); ['pointerup','pointerleave','pointercancel'].forEach((type) => button.addEventListener(type, () => { setReveal(button, false); hide?.(); })); }; revealEvents($('#hold-card')); revealEvents($('#viewer-word-card'), () => { $('#viewer-word').textContent = game.word; }, () => { $('#viewer-word').textContent = 'החזיקו למילה'; });
-  bindCanvas(pairCanvas, (stroke) => { client.localStrokes.push(stroke); if (game.phase === 'drawing') sendFromPair({ type: 'stroke', stroke }); }, pairCanDraw);
+  bindCanvas(pairCanvas, queuePairStroke, pairCanDraw);
   $$('.category-buttons button').forEach((button) => button.onclick = () => generatorWord(button.dataset.category)); $('#toggle-generator-word').onclick = () => { const word = $('#generator-word'); const hidden = word.dataset.hidden === 'true'; word.dataset.hidden = String(!hidden); word.style.filter = hidden ? '' : 'blur(9px)'; };
   bindFreeCanvas($('#solo-canvas')); $('#clear-solo').onclick = () => prepareCanvas($('#solo-canvas'));
-  window.addEventListener('resize', () => { updateRotateHint(); if ($('#pair-viewer').offsetParent) redrawViewer(); if ($('#pair-draw').offsetParent && client.canvasReady) { const history = client.localStrokes; resetPairCanvas(); const previous = {}; history.forEach((stroke) => drawStroke(pairCanvas, stroke, previous)); client.localStrokes = history; } });
+  window.addEventListener('resize', () => { updateRotateHint(); if ($('#pair-viewer').offsetParent) redrawViewer(); if ($('#pair-draw').offsetParent && client.canvasReady) reflowPairCanvas(); });
   window.addEventListener('pagehide', () => saveHostSession());
 }
 function copyRoomCode() { navigator.clipboard?.writeText(game.roomCode).then(() => toast('קוד החדר הועתק.')).catch(() => toast(`קוד החדר: ${game.roomCode}`)); }
