@@ -25,8 +25,11 @@ const PEER_OPTIONS = {
 const CONNECTION_TIMEOUT = 10000;
 const HOST_ID_RETRIES = 4;
 const DIE_REVEAL_DURATION = 3000;
-const HEARTBEAT_INTERVAL = 2000;
-const HEARTBEAT_TIMEOUT = 10000;
+// Mobile browsers briefly pause timers and WebRTC while switching networks or
+// waking the screen. A generous grace window prevents a healthy game from
+// throwing players out because of one missed heartbeat.
+const HEARTBEAT_INTERVAL = 5000;
+const HEARTBEAT_TIMEOUT = 45000;
 const RECONNECT_DELAYS_MS = [250, 500, 1000, 2000, 4000, 8000];
 const MAX_AUTO_RECONNECT_ATTEMPTS = RECONNECT_DELAYS_MS.length;
 const PUBLIC_APP_URL = 'https://eladbiller.github.io/laila-al-tzir/';
@@ -44,12 +47,13 @@ const game = {
   category: '', word: '', seconds: 60, timer: null, strokes: [], canvasRevision: 0, usedWords: new Set(), finalTeamId: '',
   finalAllPlay: false, allPlayReady: {}, lastRoll: null, winnerId: '', heartbeat: null
 };
-const client = { teamId: '', reconnectKey: '', pairName: '', connection: null, reconnectTimer: null, connectionTimer: null, peerTimer: null, watchdog: null, reconnectAttempts: 0, attempt: 0, lastHostContact: 0, canvasOpen: false, canvasReady: false, localStrokes: [], viewerPrevious: {}, pendingStroke: null, strokeTimer: null, lastWord: '', lastPhase: '', connected: false, note: '', ended: false, resuming: false };
+const client = { teamId: '', reconnectKey: '', pairName: '', connection: null, reconnectTimer: null, connectionTimer: null, peerTimer: null, peerRecoveryTimer: null, watchdog: null, reconnectAttempts: 0, attempt: 0, lastHostContact: 0, canvasOpen: false, canvasReady: false, localStrokes: [], viewerPrevious: {}, pendingStroke: null, strokeTimer: null, lastWord: '', lastPhase: '', connected: false, note: '', ended: false, resuming: false };
 const hostNetwork = { reconnecting: false, lastError: '' };
 let toastTimer;
 let hostOpenTimer;
 let hostAttempt = 0;
 let drawingFullscreen = false;
+let canvasReflowTimer = null;
 
 const sharedCanvas = $('#viewer-canvas');
 const pairCanvas = $('#pair-canvas');
@@ -77,7 +81,7 @@ function hostSessionSnapshot() {
 function saveHostSession() { if (game.mode === 'host' && game.roomCode && !['lobby-ended','ended'].includes(game.phase)) localStorage.setItem(hostStorageName(), JSON.stringify(hostSessionSnapshot())); }
 function readHostSession() { try { const session = JSON.parse(localStorage.getItem(hostStorageName()) || 'null'); return session?.version === 1 && normalizeCode(session.roomCode) ? session : null; } catch { return null; } }
 function clearHostSession() { localStorage.removeItem(hostStorageName()); }
-function clearClientTimers() { clearTimeout(client.reconnectTimer); clearTimeout(client.connectionTimer); clearTimeout(client.peerTimer); clearTimeout(client.strokeTimer); clearInterval(client.watchdog); client.reconnectTimer = null; client.connectionTimer = null; client.peerTimer = null; client.strokeTimer = null; client.watchdog = null; client.pendingStroke = null; }
+function clearClientTimers() { clearTimeout(client.reconnectTimer); clearTimeout(client.connectionTimer); clearTimeout(client.peerTimer); clearTimeout(client.peerRecoveryTimer); clearTimeout(client.strokeTimer); clearInterval(client.watchdog); client.reconnectTimer = null; client.connectionTimer = null; client.peerTimer = null; client.peerRecoveryTimer = null; client.strokeTimer = null; client.watchdog = null; client.pendingStroke = null; }
 function peerErrorMessage(error, timeout = false) {
   const type = timeout ? 'timeout' : (error?.type || 'unknown');
   const messages = {
@@ -199,20 +203,21 @@ function renderTools() {
 }
 function renderHost() {
   show('board-view'); $('#board-phase-label').textContent = phaseText(); $('#board-turn').textContent = boardTurnText(); $('#board-status').textContent = game.finalTeamId ? `${game.teams.find((item) => item.id === game.finalTeamId)?.name || 'זוג'} הגיעו לסיום — עליהם להצליח ב־All Play כדי לנצח.` : 'הצבע של המשבצת קובע את סוג הכרטיס.'; $('#board-connection').textContent = `● ${game.teams.filter((team) => team.online).length}/${game.teams.length}`;
-  const timer = $('#host-timer'); visible(timer, game.phase === 'drawing'); timer.textContent = String(game.seconds).padStart(2, '0'); const die = $('#dice-display'); visible(die, game.phase === 'rolling' && Boolean(game.lastRoll)); die.textContent = game.lastRoll || ''; renderBoard(); renderTeamChips($('#board-teams')); setBoardActions(); renderConnectionNotice(); renderTools(); visible($('#winner-sheet'), game.phase === 'gameover'); if (game.phase === 'gameover') $('#winner-title').textContent = `${game.teams.find((item) => item.id === game.winnerId)?.name || ''} ניצחו!`; saveHostSession();
+  const die = $('#dice-display'); visible(die, game.phase === 'rolling' && Boolean(game.lastRoll)); die.textContent = game.lastRoll || ''; renderBoard(); renderTeamChips($('#board-teams')); setBoardActions(); renderConnectionNotice(); renderTools(); visible($('#winner-sheet'), game.phase === 'gameover'); if (game.phase === 'gameover') $('#winner-title').textContent = `${game.teams.find((item) => item.id === game.winnerId)?.name || ''} ניצחו!`; saveHostSession();
 }
 function renderLobby() { $('#room-code-display').textContent = game.roomCode; renderTeamChips($('#lobby-teams')); $('#start-game').disabled = game.teams.length < 2; }
 
 function updateRotateHint() { const hint = $('#rotate-hint'); if (hint) visible(hint, !$('#pair-draw').hidden && window.matchMedia?.('(orientation: portrait)').matches); }
 async function lockDrawingLandscape() {
   try {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      await document.documentElement.requestFullscreen();
+    const drawer = $('#pair-draw');
+    if (!document.fullscreenElement && drawer?.requestFullscreen) {
+      await drawer.requestFullscreen({ navigationUI: 'hide' });
       drawingFullscreen = true;
     }
     await screen.orientation?.lock?.('landscape');
   } catch {}
-  updateRotateHint();
+  queuePairCanvasReflow(); setTimeout(queuePairCanvasReflow, 700); updateRotateHint();
 }
 function releaseDrawingOrientation() {
   try { screen.orientation?.unlock?.(); } catch {}
@@ -406,9 +411,31 @@ function scheduleReconnect() {
 function startClientPeer() {
   if (!window.Peer || client.ended) return; clearTimeout(client.peerTimer); game.peer?.destroy?.(); const peer = new Peer(PEER_OPTIONS); game.peer = peer; let opened = false;
   client.peerTimer = setTimeout(() => { if (!opened && game.peer === peer) { peer.destroy(); client.connected = false; setJoinStatus(peerErrorMessage(null, true), true); $('#join-room').disabled = false; scheduleReconnect(); } }, CONNECTION_TIMEOUT);
-  peer.on('open', () => { if (game.peer !== peer) return; opened = true; clearTimeout(client.peerTimer); connectClient(); });
-  peer.on('disconnected', () => { if (game.peer !== peer || client.ended) return; client.connected = false; setJoinStatus('שירות החדרים נותק. מנסים להתחבר מחדש…', true); if ($('#pair-view').classList.contains('is-active')) renderPair(); try { peer.destroy(); } catch {} scheduleReconnect(); });
-  peer.on('error', (error) => { if (game.peer !== peer || client.ended) return; clearTimeout(client.peerTimer); client.connected = false; setJoinStatus(peerErrorMessage(error), true); $('#join-room').disabled = false; if ($('#pair-view').classList.contains('is-active')) renderPair(); try { peer.destroy(); } catch {} scheduleReconnect(); });
+  peer.on('open', () => { if (game.peer !== peer) return; opened = true; clearTimeout(client.peerTimer); clearTimeout(client.peerRecoveryTimer); client.peerRecoveryTimer = null; if (!client.connection?.open) connectClient(); });
+  peer.on('disconnected', () => {
+    if (game.peer !== peer || client.ended) return;
+    // Losing PeerJS signalling does not necessarily mean the direct game
+    // connection died. Keep the working game socket alive while signalling
+    // reconnects in the background instead of creating a second player socket.
+    try { peer.reconnect(); } catch {}
+    clearTimeout(client.peerRecoveryTimer);
+    client.peerRecoveryTimer = setTimeout(() => {
+      if (game.peer !== peer || client.ended || !peer.disconnected) return;
+      if (client.connection?.open) return;
+      client.connected = false; setJoinStatus('שירות החדרים נותק. מנסים להתחבר מחדש…', true);
+      if ($('#pair-view').classList.contains('is-active')) renderPair();
+      try { peer.destroy(); } catch {} scheduleReconnect();
+    }, 15000);
+  });
+  peer.on('error', (error) => {
+    if (game.peer !== peer || client.ended) return;
+    clearTimeout(client.peerTimer);
+    // A signalling-server hiccup can happen while the peer-to-peer game is
+    // still fine. Do not tear down a live turn for that case.
+    if (client.connection?.open) { try { peer.reconnect(); } catch {} return; }
+    client.connected = false; setJoinStatus(peerErrorMessage(error), true); $('#join-room').disabled = false;
+    if ($('#pair-view').classList.contains('is-active')) renderPair(); try { peer.destroy(); } catch {} scheduleReconnect();
+  });
 }
 function clientReceive(message) {
   if (!message?.type) return;
@@ -455,6 +482,7 @@ function bindCanvas(canvas, callback, allowed) {
 }
 function pairCanDraw() { return client.canvasOpen && ((game.phase === 'drawing' && activeTeam()?.id === client.teamId) || game.phase === 'allplay-word'); }
 function reflowPairCanvas() { if (!client.canvasOpen || !client.canvasReady) return; const history = client.localStrokes; prepareCanvas(pairCanvas); const previous = {}; history.forEach((stroke) => drawStroke(pairCanvas, stroke, previous)); }
+function queuePairCanvasReflow() { clearTimeout(canvasReflowTimer); canvasReflowTimer = setTimeout(() => { if ($('#pair-draw').offsetParent && client.canvasReady) reflowPairCanvas(); }, 180); }
 function queuePairStroke(stroke) {
   client.localStrokes.push(stroke);
   if (game.phase !== 'drawing') return;
@@ -479,7 +507,9 @@ function bindEvents() {
   bindCanvas(pairCanvas, queuePairStroke, pairCanDraw);
   $$('.category-buttons button').forEach((button) => button.onclick = () => generatorWord(button.dataset.category)); $('#toggle-generator-word').onclick = () => { const word = $('#generator-word'); const hidden = word.dataset.hidden === 'true'; word.dataset.hidden = String(!hidden); word.style.filter = hidden ? '' : 'blur(9px)'; };
   bindFreeCanvas($('#solo-canvas')); $('#clear-solo').onclick = () => prepareCanvas($('#solo-canvas'));
-  window.addEventListener('resize', () => { updateRotateHint(); if ($('#pair-viewer').offsetParent) redrawViewer(); if ($('#pair-draw').offsetParent && client.canvasReady) reflowPairCanvas(); });
+  window.addEventListener('resize', () => { updateRotateHint(); if ($('#pair-viewer').offsetParent) redrawViewer(); queuePairCanvasReflow(); });
+  window.addEventListener('orientationchange', () => { updateRotateHint(); queuePairCanvasReflow(); });
+  window.visualViewport?.addEventListener('resize', queuePairCanvasReflow);
   window.addEventListener('pagehide', () => saveHostSession());
 }
 function copyRoomCode() { navigator.clipboard?.writeText(game.roomCode).then(() => toast('קוד החדר הועתק.')).catch(() => toast(`קוד החדר: ${game.roomCode}`)); }

@@ -198,6 +198,7 @@ button { -webkit-tap-highlight-color: transparent; }
   inset: 0;
   display: block;
   width: 100vw;
+  width: 100dvw;
   height: 100dvh;
   max-width: none;
   margin: 0;
@@ -210,7 +211,7 @@ button { -webkit-tap-highlight-color: transparent; }
   backdrop-filter: none;
 }
 .pair-draw canvas, .pair-viewer canvas, #solo-canvas { display: block; width: 100%; background: #fbfdff; touch-action: none; cursor: crosshair; }
-.pair-draw canvas { position: absolute; inset: 0; width: 100vw; height: 100dvh; border-radius: 0; }
+.pair-draw canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
 .draw-top { position: absolute; z-index: 3; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; left: 12px; min-height: 44px; padding: 7px 9px; border: 1px solid rgba(18,41,76,.18); border-radius: 14px; color: #102042; background: rgba(255,255,255,.88); box-shadow: 0 8px 22px rgba(15,23,42,.16); backdrop-filter: blur(10px); }
 .draw-brand { color: #2c5bb6; font-size: .74rem; font-weight: 900; letter-spacing: .8px; }
 .draw-top .eyebrow { flex: 1; color: #334155; text-align: center; }
@@ -282,4 +283,12 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 @media (orientation: portrait) and (max-width: 670px) {
   .pair-draw canvas { background-image: linear-gradient(90deg, rgba(148,163,184,.12) 1px, transparent 1px); background-size: 34px 34px; }
+}
+@media (orientation: landscape) and (max-height: 620px) {
+  .draw-top { top: max(7px, env(safe-area-inset-top, 0px)); min-height: 36px; padding: 5px 8px; }
+  .draw-state { top: 48px; padding: 5px 10px; font-size: .7rem; }
+  .pair-clock { font-size: 1.35rem; }
+  .draw-actions { right: max(9px, env(safe-area-inset-right, 0px)); bottom: max(8px, env(safe-area-inset-bottom, 0px)); left: max(9px, env(safe-area-inset-left, 0px)); }
+  .draw-actions .main-button { padding: 10px 16px; }
+  .draw-actions .secondary-button, .draw-actions .return-word { padding: 8px 10px; }
 }
