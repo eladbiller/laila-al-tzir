@@ -27,6 +27,7 @@ const HOST_ID_RETRIES = 4;
 const DIE_REVEAL_DURATION = 3000;
 const HEARTBEAT_INTERVAL = 5000;
 const HEARTBEAT_TIMEOUT = 16000;
+const PUBLIC_APP_URL = 'https://eladbiller.github.io/laila-al-tzir/';
 const PATH = [
   [9,12,'yellow','START'],[20.5,12,'blue'],[32,12,'orange'],[43.5,12,'green'],[55,12,'red'],[66.5,12,'yellow'],[78,12,'blue'],[89.5,12,'orange'],
   [89.5,31,'green'],[78,31,'red'],[66.5,31,'yellow'],[55,31,'blue'],[43.5,31,'orange'],[32,31,'green'],[20.5,31,'red'],[9,31,'yellow'],
@@ -348,7 +349,7 @@ function attachHostConnection(connection) {
   connection.on('close', () => disconnectHostTeam(connection));
   connection.on('error', () => { toast('חיבור של זוג נותק. הזוג ינסה להתחבר מחדש.'); disconnectHostTeam(connection); });
 }
-function joinLink() { const url = new URL(location.href); url.search = ''; url.hash = ''; url.searchParams.set('join', game.roomCode); return url.toString(); }
+function joinLink() { const source = /^https?:$/.test(location.protocol) ? location.href : PUBLIC_APP_URL; const url = new URL(source); url.search = ''; url.hash = ''; url.searchParams.set('join', game.roomCode); return url.toString(); }
 function renderQR(target) { const el = $(target); el.replaceChildren(); const url = joinLink(); const size = target === '#qr-code' ? 248 : 210; if (window.QRCode) new QRCode(el, { text: url, width: size, height: size, colorDark: '#0f172a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H }); else el.textContent = url; }
 function createRoom() {
   if (!window.Peer) return toast('שירות החיבור לא נטען. בדקו אינטרנט ונסו שוב.');
